@@ -31,8 +31,12 @@ def make_onehot(indicies, total=5):
     I = np.eye(total)
     return I[indicies]
 
+def bit_set(x, n):
+    return x & 1 << n != 0
+
 def get_note_type(note):
-    pass
+    note = int(note)
+    kat = bit_set() or bit_set()
 
 def get_num_snaps():
     pass
