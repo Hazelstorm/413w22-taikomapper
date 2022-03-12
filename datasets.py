@@ -7,6 +7,7 @@ years = ["2021"]
 songs = {}
 
 def create_directory():
+    total = 0
     num_kantan = 0
     num_futsuu = 0
     num_muzu = 0
@@ -23,6 +24,8 @@ def create_directory():
             
             # Find audio and difficulties
             for file in song_dir:
+                if ".osu" in file:
+                    total += 1
                 if ".mp3" in file:
                     audio = file
                 if "Kantan].osu" in file or "'s Kantan].osu" in file:
@@ -54,6 +57,7 @@ def create_directory():
     print(f"Futsuus: {num_futsuu}")
     print(f"Muzus: {num_muzu}")
     print(f"Onis: {num_oni}")
+    print(f"Total: {total}")
     
     with open("data.pkl", "wb") as out_file:
         pickle.dump(songs, out_file)

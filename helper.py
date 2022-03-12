@@ -13,7 +13,7 @@ def snap_to_ms(bar_len, offset, snap_num, snap_val=SNAP):
 def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
     snap_num = (ms - offset) / (bar_len / snap_val)
     error = abs(snap_num - round(snap_num))
-    if error < 0.015:
+    if error < 0.05:
         return round(snap_num)
 
 def get_line(osu, header):
@@ -31,12 +31,13 @@ def make_onehot(indicies, total=5):
     I = np.eye(total)
     return I[indicies]
 
-def bit_set(x, n):
-    return x & 1 << n != 0
+def bit_flag(x, i):
+    return bool(x & (1 << i))
 
 def get_note_type(note):
-    note = int(note)
-    kat = bit_set() or bit_set()
+    is_kat = bit_flag(int(note), 1) or bit_flag(int(note), 3)
+    is_finish = bit_flag(int(note), 2)
+    return is_kat + 2 * is_finish
 
 def get_num_snaps():
     pass
@@ -49,7 +50,7 @@ def get_map_data(filepath):
     Given the filepath to a .osu, returns a numpy matrix
     representing the notes in the song. 
     """
-    with open(filepath) as file:
+    with open(filepath, encoding="utf8") as file:
         osu = file.readlines()
     i = 0
     count = 0
@@ -77,6 +78,7 @@ def get_map_data(filepath):
         ary = timing_point.split(",")
         if ary[6] == "1": 
             # extra uninherited timing point, invalid .osu
+            print("Found multiple uninherited timing points, exiting")
             return None
     
     # assume the bar_len and offset variables are already set pls
@@ -89,6 +91,7 @@ def get_map_data(filepath):
         snap_num = ms_to_snap(bar_len, offset, int(ary[2]))
         if snap_num == None:
             # note is not snapped, invalid .osu
+            print("Found unsnapped note, exiting")
             return None
         else:
            lst.append((snap_num, get_note_type(ary[4])),) 
@@ -139,10 +142,8 @@ if __name__ == "__main__":
         for snap_num in range(100):
             ms = snap_to_ms(bar_len, 0, snap_num)
             assert(ms_to_snap(bar_len, 0, ms) == snap_num)
-            assert(ms_to_snap(bar_len, 0, ms+10) is None)
-            assert(ms_to_snap(bar_len, 0, ms-10) is None)
-# need to rejoin
-# oh I can give you permission
+            assert(ms_to_snap(bar_len, 0, ms+20) is None)
+            assert(ms_to_snap(bar_len, 0, ms-20) is None)
       
 # print(get_audio_data("test.mp3"))
 get_map_data("test.osu")
