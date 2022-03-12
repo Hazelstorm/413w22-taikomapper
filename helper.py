@@ -6,16 +6,14 @@ from hyper_param import *
 
 SNAP = get_snap()
 
-def snap_to_ms(bpm, offset, snap_num, snap_val=SNAP):
-    bar_len = 60000 / bpm
+def snap_to_ms(bar_len, offset, snap_num, snap_val=SNAP):
     ms = offset + (snap_num * bar_len / snap_val)
     return math.floor(ms)
 
-def ms_to_snap(bpm, offset, ms, snap_val=SNAP):
-    bar_len = 60000 / bpm
+def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
     snap_num = (ms - offset) / (bar_len / snap_val)
     error = abs(snap_num - round(snap_num))
-    if error < 0.05:
+    if error < 0.015:
         return round(snap_num)
 
 def get_line(osu, header):
@@ -60,7 +58,6 @@ def get_map_data(filepath):
     for hit_object in hit_objects: 
         # x,y,time,type,hitSound,objectParams,hitSample
         ary = hit_object.split(",")
-        
         
 def get_audio_data(filepath, kwargs=get_mel_param()):
     """
@@ -112,4 +109,4 @@ if __name__ == "__main__":
 
 
 # print(get_audio_data("test.mp3"))
-get_map_data("test.osu")
+get_map_data("./data/2021/203283 Mitchie M - Birthday Song for Miku/Mitchie M - Birthday Song for Miku (Krisom) [Dekaane's Oni].osu")
