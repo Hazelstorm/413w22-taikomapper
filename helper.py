@@ -103,11 +103,12 @@ def get_audio_data(filepath, kwargs=get_mel_param()):
 
 if __name__ == "__main__":
     for bpm in range(50, 200):
+        bar_len = 60000 / bpm
         for snap_num in range(100):
-            ms = snap_to_ms(bpm, 0, snap_num)
-            assert(ms_to_snap(bpm, 0, ms) == snap_num)
-            assert(ms_to_snap(bpm, 0, ms+20) is None)
-            assert(ms_to_snap(bpm, 0, ms-20) is None)
+            ms = snap_to_ms(bar_len, 0, snap_num)
+            assert(ms_to_snap(bar_len, 0, ms) == snap_num)
+            assert(ms_to_snap(bar_len, 0, ms+10) is None)
+            assert(ms_to_snap(bar_len, 0, ms-10) is None)
 
 
 # print(get_audio_data("test.mp3"))
