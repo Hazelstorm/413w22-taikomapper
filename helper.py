@@ -6,20 +6,32 @@ from hyper_param import *
 
 SNAP = get_snap()
 
-def snap_to_ms(bar_len, offset, snap_num, snap_val=SNAP):
+def snap_to_ms(bpm, offset, snap_num, snap_val=SNAP):
+    bar_len = 60000 / bpm
     ms = offset + (snap_num * bar_len / snap_val)
     return math.floor(ms)
 
-def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
+def ms_to_snap(bpm, offset, ms, snap_val=SNAP):
+    bar_len = 60000 / bpm
     snap_num = (ms - offset) / (bar_len / snap_val)
     error = abs(snap_num - round(snap_num))
-    if error < 0.015:
+    if error < 0.05:
         return round(snap_num)
 
 def get_line(osu, header):
     for i, line in enumerate(osu):
         if header in line:
             return i
+
+#Shamelessly stolen from A1 ¯\_(ツ)_/¯
+def make_onehot(indicies, total=5): 
+    """
+    Convert indicies into one-hot vectors by
+        1. Creating an identity matrix of shape [total, total]
+        2. Indexing the appropriate columns of that identity matrix
+    """
+    I = np.eye(total)
+    return I[indicies]
 
 def get_map_data(filepath):
     """
@@ -28,13 +40,28 @@ def get_map_data(filepath):
     """
     with open(filepath) as file:
         osu = file.readlines()
-        
-    for line in osu: 
-        if line == "[TimingPoints]":
-            print("found timing points")
-        if line == "[HitObjects]":
-            print("found hit objects")
+    i = 0
+    count = 0
+    while (i < len(osu)):
+        # osu[timing_points+1:hit_objects]
+        # osu[hit_objects+1:]
+        if osu[i] == "[TimingPoints]\n":
+            timing_points_index = i #? this should work
+        if osu[i] == "[HitObjects]\n":
+            hit_objects_index = i
+
+    timing_points = osu[timing_points_index+1:hit_objects_index] 
+    hit_objects = osu[hit_objects_index+1:]
     
+    for timing_point in timing_points:
+        # time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
+        ary = timing_point.split(",")
+        
+    for hit_object in hit_objects: 
+        # x,y,time,type,hitSound,objectParams,hitSample
+        ary = hit_object.split(",")
+        
+        
 def get_audio_data(filepath, kwargs=get_mel_param()):
     """
     Given the filepath to a .mp3 and a window size, returns a numpy array
@@ -84,4 +111,4 @@ if __name__ == "__main__":
 
 
 # print(get_audio_data("test.mp3"))
-get_map_data("./data/2021/203283 Mitchie M - Birthday Song for Miku/Mitchie M - Birthday Song for Miku (Krisom) [Dekaane's Oni].osu")
+get_map_data("test.osu")
