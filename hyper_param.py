@@ -8,11 +8,15 @@ fmin = 0.0
 fmax = 6000
 power_spectrogram = 2
 
-# snap sampling
+# hyperparameter config
 snap = 4
+window_size = 128
 
 def get_snap():
     return snap
+
+def get_window_size():
+    return window_size
 
 def get_mel_param():
     return{

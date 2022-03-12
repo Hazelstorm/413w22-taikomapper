@@ -2,9 +2,11 @@ import sys
 import librosa
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 from hyper_param import *
 
 SNAP = get_snap()
+WINDOW_SIZE = get_window_size()
 
 def snap_to_ms(bar_len, offset, snap_num, snap_val=SNAP):
     ms = offset + (snap_num * bar_len / snap_val)
@@ -39,8 +41,8 @@ def get_note_type(note):
     is_finish = bit_flag(int(note), 2)
     return 1 + is_kat + 2 * is_finish
 
-def get_num_snaps(spectro):
-    return spectro.shape[0]
+def get_num_snaps(spectro, bar_len, offset):
+    return round((spectro.shape[0] - offset) // bar_len * SNAP)
 
 def get_note_data(notes, num_snaps):
     data = np.zeros((num_snaps, 5))
@@ -50,6 +52,17 @@ def get_note_data(notes, num_snaps):
     # If no note on tick, set Empty flag to true
     data[:,0] = data[:,0] + 1 - np.sum(data, axis=1)
     
+    return data
+
+def get_audio_data(spectro, bar_len, offset):
+    num_snaps = get_num_snaps(spectro, bar_len, offset)
+    data = np.zeros((num_snaps, 2 * WINDOW_SIZE + 1, spectro.shape[1]))
+    padded_spectro = np.pad(spectro, ((WINDOW_SIZE, WINDOW_SIZE+offset), (0,0)))
+    
+    for snap_num in range(num_snaps):
+        ms = snap_to_ms(bar_len, offset, snap_num)
+        data[snap_num] = padded_spectro[ms+offset:ms+2*WINDOW_SIZE+1+offset]
+        
     return data
 
 def get_map_notes(filepath):
@@ -66,18 +79,21 @@ def get_map_notes(filepath):
         # osu[hit_objects+1:]
         if osu[i] == "[TimingPoints]\n":
             timing_points_index = i 
-            while (osu[i] != "\n"):
+            while (i < len(osu) and osu[i] != "\n"):
                 i += 1
             timing_points_endpoint = i
         if osu[i] == "[HitObjects]\n":
             hit_objects_index = i
+            while (i < len(osu) and osu[i] != "\n"):
+                i += 1
+            hit_objects_endpoint = i
         i += 1
-    timing_points = osu[timing_points_index+1: timing_points_endpoint] # -1 should be good
-    hit_objects = osu[hit_objects_index+1:-1]
+    timing_points = osu[timing_points_index+1: timing_points_endpoint] 
+    hit_objects = osu[hit_objects_index+1: hit_objects_endpoint]
     
     # set offset and bar_len according to first timing point
-    offset = int(timing_points[0].split(",")[0])
     bar_len = float(timing_points[0].split(",")[1])
+    offset = int(timing_points[0].split(",")[0])
 
     # check for extra uninherited timing points
     for timing_point in timing_points[1:]:
@@ -95,13 +111,13 @@ def get_map_notes(filepath):
         snap_num = ms_to_snap(bar_len, offset, int(ary[2]))
         if snap_num == None:
             # note is not snapped, invalid .osu
-            print("Found unsnapped note, exiting")
+            print(f"Found unsnapped note at {ary[2]}ms, exiting")
             return None
         else:
            lst.append((snap_num, get_note_type(ary[4])),) 
-    return lst
+    return lst, bar_len, offset
     
-def get_audio_data(filepath, kwargs=get_mel_param()):  
+def get_map_audio(filepath, kwargs=get_mel_param()):  
     """
     Given the filepath to a .mp3 and a window size, returns a numpy array
     with spectrogram data about the song.
@@ -111,7 +127,7 @@ def get_audio_data(filepath, kwargs=get_mel_param()):
     """
     sr = kwargs['sr']
     try: 
-        y, sr = librosa.load(filepath, sr)
+        y, sr = librosa.load(filepath, sr=sr)
     except Exception:
         print("file error")
         exit()
@@ -135,19 +151,21 @@ def get_audio_data(filepath, kwargs=get_mel_param()):
     
     dbs = librosa.core.power_to_db(S)
 
-    spectrogram = np.squeeze(dbs).T
+    spectro = np.squeeze(dbs).T
     
-    return spectrogram
+    return spectro
+
+def plot_spectrogram(spectro):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.imshow(spectro.T)
+    ax.set_aspect(0.5/ax.get_data_ratio(), adjustable='box')
+    plt.gca().invert_yaxis()
+    plt.show()
 
 
-for bpm in range(50, 200):
-    bar_len = 60000 / bpm
-    for snap_num in range(100):
-        ms = snap_to_ms(bar_len, 0, snap_num)
-        assert(ms_to_snap(bar_len, 0, ms) == snap_num)
-        assert(ms_to_snap(bar_len, 0, ms+20) is None)
-        assert(ms_to_snap(bar_len, 0, ms-20) is None)
-      
-spectro = get_audio_data("test.mp3")
-notes = get_map_notes("test.osu")
-data = get_note_data(notes, get_num_snaps(spectro))
+spectro = get_map_audio("test.mp3")
+notes, bar_len, offset = get_map_notes("test.osu")
+num_snaps = get_num_snaps(spectro, bar_len, offset)
+note_data = get_note_data(notes, num_snaps)
+audio_data = get_audio_data(spectro, bar_len, offset)
