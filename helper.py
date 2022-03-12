@@ -31,6 +31,15 @@ def make_onehot(indicies, total=5):
     I = np.eye(total)
     return I[indicies]
 
+def get_note_type(note):
+    pass
+
+def get_num_snaps():
+    pass
+
+def make_map_data_array(data, num_snaps):
+    pass
+
 def get_map_data(filepath):
     """
     Given the filepath to a .osu, returns a numpy matrix
@@ -44,22 +53,44 @@ def get_map_data(filepath):
         # osu[timing_points+1:hit_objects]
         # osu[hit_objects+1:]
         if osu[i] == "[TimingPoints]\n":
-            timing_points_index = i #? this should work
+            timing_points_index = i 
+            while (osu[i] != "\n"):
+                i += 1
+            timing_points_endpoint = i
         if osu[i] == "[HitObjects]\n":
             hit_objects_index = i
-
-    timing_points = osu[timing_points_index+1:hit_objects_index] 
-    hit_objects = osu[hit_objects_index+1:]
+        i += 1
+    timing_points = osu[timing_points_index+1: timing_points_endpoint] # -1 should be good
+    hit_objects = osu[hit_objects_index+1:-1]
     
-    for timing_point in timing_points:
+    # set offset and bar_len according to first timing point
+    offset = int(timing_points[0].split(",")[0])
+    bar_len = float(timing_points[0].split(",")[1])
+
+    # check for extra uninherited timing points
+    for timing_point in timing_points[1:]:
         # time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
         ary = timing_point.split(",")
-        
+        if ary[6] == "1": 
+            # extra uninherited timing point, invalid .osu
+            return None
+    
+    # assume the bar_len and offset variables are already set pls
+    # you need to check that every note falls on 1/4 snap
+    # the ms_to_snap function should return None if the note is invalid
+    lst = []
     for hit_object in hit_objects: 
         # x,y,time,type,hitSound,objectParams,hitSample
         ary = hit_object.split(",")
-        
-def get_audio_data(filepath, kwargs=get_mel_param()):
+        snap_num = ms_to_snap(bar_len, offset, int(ary[2]))
+        if snap_num == None:
+            # note is not snapped, invalid .osu
+            return None
+        else:
+           lst.append((snap_num, get_note_type(ary[4])),) 
+    return lst
+    
+def get_audio_data(filepath, kwargs=get_mel_param()):  
     """
     Given the filepath to a .mp3 and a window size, returns a numpy array
     with spectrogram data about the song.
@@ -67,9 +98,9 @@ def get_audio_data(filepath, kwargs=get_mel_param()):
     The mp3 is sampled at every snap with additional data on each side of
     the point with size `window_size`
     """
-    
+    sr = kwargs['sr']
     try: 
-        y, sr = librosa.load(filepath)
+        y, sr = librosa.load(filepath, sr)
     except Exception:
         print("file error")
         exit()
@@ -93,9 +124,9 @@ def get_audio_data(filepath, kwargs=get_mel_param()):
     
     dbs = librosa.core.power_to_db(S)
 
-    spectrogram = np.squeeze(dbs)
+    spectrogram = np.squeeze(dbs).T
     
-    return spectrogram.T
+    return spectrogram
 
 
 if __name__ == "__main__":
@@ -106,7 +137,11 @@ if __name__ == "__main__":
             assert(ms_to_snap(bar_len, 0, ms) == snap_num)
             assert(ms_to_snap(bar_len, 0, ms+10) is None)
             assert(ms_to_snap(bar_len, 0, ms-10) is None)
-
-
+# need to rejoin
+# oh I can give you permission
+      
 # print(get_audio_data("test.mp3"))
-get_map_data("./data/2021/203283 Mitchie M - Birthday Song for Miku/Mitchie M - Birthday Song for Miku (Krisom) [Dekaane's Oni].osu")
+get_map_data("test.osu")
+
+# matrx = get_audio_data("test2.mp3")
+# print(matrx.shape)
