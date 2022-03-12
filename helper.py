@@ -37,15 +37,22 @@ def bit_flag(x, i):
 def get_note_type(note):
     is_kat = bit_flag(int(note), 1) or bit_flag(int(note), 3)
     is_finish = bit_flag(int(note), 2)
-    return is_kat + 2 * is_finish
+    return 1 + is_kat + 2 * is_finish
 
-def get_num_snaps():
-    pass
+def get_num_snaps(spectro):
+    return spectro.shape[0]
 
-def make_map_data_array(data, num_snaps):
-    pass
+def get_note_data(notes, num_snaps):
+    data = np.zeros((num_snaps, 5))
+    for note in notes:
+        data[note[0], note[1]] = 1
+        
+    # If no note on tick, set Empty flag to true
+    data[:,0] = data[:,0] + 1 - np.sum(data, axis=1)
+    
+    return data
 
-def get_map_data(filepath):
+def get_map_notes(filepath):
     """
     Given the filepath to a .osu, returns a numpy matrix
     representing the notes in the song. 
@@ -81,9 +88,6 @@ def get_map_data(filepath):
             print("Found multiple uninherited timing points, exiting")
             return None
     
-    # assume the bar_len and offset variables are already set pls
-    # you need to check that every note falls on 1/4 snap
-    # the ms_to_snap function should return None if the note is invalid
     lst = []
     for hit_object in hit_objects: 
         # x,y,time,type,hitSound,objectParams,hitSample
@@ -136,17 +140,14 @@ def get_audio_data(filepath, kwargs=get_mel_param()):
     return spectrogram
 
 
-if __name__ == "__main__":
-    for bpm in range(50, 200):
-        bar_len = 60000 / bpm
-        for snap_num in range(100):
-            ms = snap_to_ms(bar_len, 0, snap_num)
-            assert(ms_to_snap(bar_len, 0, ms) == snap_num)
-            assert(ms_to_snap(bar_len, 0, ms+20) is None)
-            assert(ms_to_snap(bar_len, 0, ms-20) is None)
+for bpm in range(50, 200):
+    bar_len = 60000 / bpm
+    for snap_num in range(100):
+        ms = snap_to_ms(bar_len, 0, snap_num)
+        assert(ms_to_snap(bar_len, 0, ms) == snap_num)
+        assert(ms_to_snap(bar_len, 0, ms+20) is None)
+        assert(ms_to_snap(bar_len, 0, ms-20) is None)
       
-# print(get_audio_data("test.mp3"))
-get_map_data("test.osu")
-
-# matrx = get_audio_data("test2.mp3")
-# print(matrx.shape)
+spectro = get_audio_data("test.mp3")
+notes = get_map_notes("test.osu")
+data = get_note_data(notes, get_num_snaps(spectro))
