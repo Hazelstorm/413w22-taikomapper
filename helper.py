@@ -1,6 +1,4 @@
-import sys
-import librosa
-import math
+import sys, librosa, math, os
 import numpy as np
 import matplotlib.pyplot as plt
 from hyper_param import *
@@ -15,7 +13,7 @@ def snap_to_ms(bar_len, offset, snap_num, snap_val=SNAP):
 def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
     snap_num = (ms - offset) / (bar_len / snap_val)
     error = abs(snap_num - round(snap_num))
-    if error < 0.05:
+    if error < 0.02 * SNAP:
         return round(snap_num)
 
 def get_line(osu, header):
@@ -73,7 +71,6 @@ def get_map_notes(filepath):
     with open(filepath, encoding="utf8") as file:
         osu = file.readlines()
     i = 0
-    count = 0
     while (i < len(osu)):
         # osu[timing_points+1:hit_objects]
         # osu[hit_objects+1:]
@@ -93,7 +90,11 @@ def get_map_notes(filepath):
     
     # set offset and bar_len according to first timing point
     bar_len = float(timing_points[0].split(",")[1])
-    offset = int(timing_points[0].split(",")[0])
+    try:
+        offset = int(timing_points[0].split(",")[0])
+    except:
+        print(f"Found float offset in {filepath}, exiting")
+        return None, None, None
 
     # check for extra uninherited timing points
     for timing_point in timing_points[1:]:
@@ -101,8 +102,8 @@ def get_map_notes(filepath):
         ary = timing_point.split(",")
         if ary[6] == "1": 
             # extra uninherited timing point, invalid .osu
-            print("Found multiple uninherited timing points, exiting")
-            return None
+            print(f"Found multiple uninherited timing points in {filepath}, exiting")
+            return None, None, None
     
     lst = []
     for hit_object in hit_objects: 
@@ -112,7 +113,7 @@ def get_map_notes(filepath):
         if snap_num == None:
             # note is not snapped, invalid .osu
             print(f"Found unsnapped note at {ary[2]}ms, exiting")
-            return None
+            return None, None, None
         else:
            lst.append((snap_num, get_note_type(ary[4])),) 
     return lst, bar_len, offset
@@ -155,6 +156,41 @@ def get_map_audio(filepath, kwargs=get_mel_param()):
     
     return spectro
 
+def get_map_data(path, path_dict):
+    
+    audio = path_dict["audio"]
+    kantan = path_dict["kantan"]
+    futsuu = path_dict["futsuu"]
+    muzu = path_dict["muzu"]
+    oni = path_dict["oni"]
+    
+    map_audio = get_map_audio(os.path.join(path, audio))
+    
+    kantan_notes, bar_len, offset = get_map_notes(os.path.join(path, kantan))
+    if kantan_notes is None:
+        return None, None, None, None
+    futsuu_notes, bar_len, offset = get_map_notes(os.path.join(path, futsuu))
+    if futsuu_notes is None:
+        return None, None, None, None
+    muzu_notes, bar_len, offset = get_map_notes(os.path.join(path, muzu))
+    if muzu_notes is None:
+        return None, None, None, None
+    oni_notes, bar_len, offset = get_map_notes(os.path.join(path, oni))
+    if oni_notes is None:
+        return None, None, None, None
+    
+    num_snaps = get_num_snaps(map_audio, bar_len, offset)
+    kantan_data = get_note_data(kantan_notes, num_snaps)
+    futsuu_data = get_note_data(futsuu_notes, num_snaps)
+    muzu_data = get_note_data(muzu_notes, num_snaps)
+    oni_data = get_note_data(oni_notes, num_snaps)
+        
+    audio_data = get_audio_data(map_audio, bar_len, offset)
+    notes_data = np.stack([kantan_data, futsuu_data, muzu_data, oni_data], axis=0)
+    
+    return audio_data, notes_data, bar_len, offset
+        
+
 def plot_spectrogram(spectro):
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -163,9 +199,9 @@ def plot_spectrogram(spectro):
     plt.gca().invert_yaxis()
     plt.show()
 
-
-spectro = get_map_audio("test.mp3")
-notes, bar_len, offset = get_map_notes("test.osu")
-num_snaps = get_num_snaps(spectro, bar_len, offset)
-note_data = get_note_data(notes, num_snaps)
-audio_data = get_audio_data(spectro, bar_len, offset)
+if __name__ == "__main__":
+    spectro = get_map_audio("test.mp3")
+    notes, bar_len, offset = get_map_notes("test.osu")
+    num_snaps = get_num_snaps(spectro, bar_len, offset)
+    note_data = get_note_data(notes, num_snaps)
+    audio_data = get_audio_data(spectro, bar_len, offset)

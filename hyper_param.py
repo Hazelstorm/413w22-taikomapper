@@ -9,7 +9,7 @@ fmax = 6000
 power_spectrogram = 2
 
 # hyperparameter config
-snap = 4
+snap = 12
 window_size = 128
 
 def get_snap():
