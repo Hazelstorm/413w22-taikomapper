@@ -164,8 +164,6 @@ def get_map_data(path, path_dict):
     muzu = path_dict["muzu"]
     oni = path_dict["oni"]
     
-    map_audio = get_map_audio(os.path.join(path, audio))
-    
     kantan_notes, bar_len, offset = get_map_notes(os.path.join(path, kantan))
     if kantan_notes is None:
         return None, None, None, None
@@ -178,6 +176,8 @@ def get_map_data(path, path_dict):
     oni_notes, bar_len, offset = get_map_notes(os.path.join(path, oni))
     if oni_notes is None:
         return None, None, None, None
+        
+    map_audio = get_map_audio(os.path.join(path, audio))
     
     num_snaps = get_num_snaps(map_audio, bar_len, offset)
     kantan_data = get_note_data(kantan_notes, num_snaps)

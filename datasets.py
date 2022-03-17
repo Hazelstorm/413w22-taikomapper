@@ -26,21 +26,17 @@ def create_directory():
             for file in song_dir:
                 if ".mp3" in file:
                     audio = file
-                if ("[Kantan].osu" in file or
-                    "[KANTAN].osu" in file or
-                    "'s Kantan].osu" in file):
+                if ("[kantan].osu" in file.lower() or
+                    "'s kantan].osu" in file.lower()):
                     kantan = file
-                if ("[Futsuu].osu" in file or
-                    "[FUTSUU].osu" in file or
-                    "'s Futsuu].osu" in file):
+                if ("[futsuu].osu" in file.lower() or
+                    "'s futsuu].osu" in file.lower()):
                     futsuu = file
-                if ("[Muzukashii].osu" in file or
-                    "[MUZUKASHII].osu" in file or
-                    "'s Muzukashii].osu" in file):
+                if ("[muzukashii].osu" in file.lower() or
+                    "'s muzukashii].osu" in file.lower()):
                     muzu = file
-                if ("[Oni].osu" in file or
-                    "[ONI].osu" in file or
-                    "'s Oni].osu" in file):
+                if ("[oni].osu" in file.lower() or
+                    "'s oni].osu" in file.lower()):
                     oni = file
             
             # Save filepaths
@@ -60,38 +56,36 @@ def create_directory():
         pickle.dump(songs, out_file)
         
     print(f"Total Mapsets:  {total_sets}")
-        
-def create_data():
+
+def create_data(force=False):
     
     sets = 0
-    exceptions = 0
     time_steps = 0
     
     with open(os.path.join("data", "data.pkl"), "rb") as in_file:
         songs = pickle.load(in_file)
         
     for path in songs:
-        print(path)
-        path_dict = songs[path]
-        
-        try:
-            audio_data, notes_data, bar_len, offset = get_map_data(path, path_dict)
-        except:
-            print("Unknown exception")
-            audio_data = None
-            exceptions += 1
-        
-        if audio_data is not None:
-            sets += 1
-            time_steps += audio_data.shape[0]
-            directory = (os.path.join("data", "npy", os.path.basename(path)))
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            np.save(os.path.join(directory, "audio_data.npy"), audio_data)
-            np.save(os.path.join(directory, "notes_data.npy"), notes_data)
-            np.save(os.path.join(directory, "timing.npy"), np.array([bar_len, offset]))
+        directory = (os.path.join("data", "npy", os.path.basename(path)))
+        if (not os.path.exists(directory)) or force:
+            path_dict = songs[path]
+            
+            try:
+                audio_data, notes_data, bar_len, offset = get_map_data(path, path_dict)
+            except:
+                print("Unknown exception")
+                audio_data = None
+            
+            if audio_data is not None:
+                print(f"Saving {path}")
+                sets += 1
+                time_steps += audio_data.shape[0]
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+                np.save(os.path.join(directory, "audio_data.npy"), audio_data)
+                np.save(os.path.join(directory, "notes_data.npy"), notes_data)
+                np.save(os.path.join(directory, "timing.npy"), np.array([bar_len, offset]))
     
     print(f"Total Valid Mapsets: {sets}")
     print(f"Total Time Steps: {time_steps}")
-    print(f"Unknown Exceptions: {exceptions}")
         

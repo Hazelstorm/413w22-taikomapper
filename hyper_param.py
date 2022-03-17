@@ -10,7 +10,7 @@ power_spectrogram = 2
 
 # hyperparameter config
 snap = 12
-window_size = 128
+window_size = 32
 
 def get_snap():
     return snap
