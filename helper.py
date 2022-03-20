@@ -5,6 +5,7 @@ from hyper_param import *
 
 SNAP = get_snap()
 WINDOW_SIZE = get_window_size()
+MAX_SNAP = get_max_snap()
 
 def snap_to_ms(bar_len, offset, snap_num, snap_val=SNAP):
     ms = offset + (snap_num * bar_len / snap_val)
@@ -72,8 +73,9 @@ def get_map_notes(filepath):
         osu = file.readlines()
     i = 0
     while (i < len(osu)):
-        # osu[timing_points+1:hit_objects]
-        # osu[hit_objects+1:]
+        if osu[i][:4] == "Mode" and osu[i][-2] != "1":
+            print(f"Wrong mode in {filepath}, exiting")
+            return None, None, None
         if osu[i] == "[TimingPoints]\n":
             timing_points_index = i 
             while (i < len(osu) and osu[i] != "\n"):
@@ -178,8 +180,11 @@ def get_map_data(path, path_dict):
         return None, None, None, None
         
     map_audio = get_map_audio(os.path.join(path, audio))
-    
     num_snaps = get_num_snaps(map_audio, bar_len, offset)
+    if num_snaps > MAX_SNAP:
+        print("Audio exceeds max snap limit")
+        return None, None, None, None
+    
     kantan_data = get_note_data(kantan_notes, num_snaps)
     futsuu_data = get_note_data(futsuu_notes, num_snaps)
     muzu_data = get_note_data(muzu_notes, num_snaps)
