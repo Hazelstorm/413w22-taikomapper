@@ -43,9 +43,7 @@ class GeneratorModel(nn.Module):
         n_layers: number of encoders
         
         """
-        
         super().__init__()
-        self.d_model = d_model
         self.embedding = nn.Linear(AUDIO_DIM, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         encoder_layers = TransformerEncoderLayer(d_model, n_heads, d_hid, dropout, batch_first=True)
@@ -55,24 +53,46 @@ class GeneratorModel(nn.Module):
     def forward(self, src: Tensor, mask: Tensor):
         """
         Args:
-            src: Tensor, shape [seq_len, win_size, n_mels]
-            mask: Tensor, shape [seq_len, seq_len]
+            src: Tensor, shape [batch_num, seq_len, win_size, n_mels]
+            mask: Tensor, shape [batch_num, seq_len, seq_len]
 
         Returns:
             Tensor, shape [seq_len, 5]
         """
-        src = src.unsqueeze(0)
         src = torch.flatten(src, start_dim=2)
         src = self.embedding(src)
         src = self.pos_encoder(src)
         src = self.transformer_encoder(src, mask)
         src = self.decoder(src)
-        return src[0]
+        return src
 
 class DiscriminatorModel(nn.Module):
     
-    def __init__(self):
-        pass
+    def __init__(self, d_model: int = 512, n_heads: int = 4, d_hid: int = 2048,
+                 n_layers: int = 4, dropout: float = 0.5):
+        super().__init__()
+        self.embedding = nn.Linear(AUDIO_DIM + 5, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        encoder_layers = TransformerEncoderLayer(d_model, n_heads, d_hid, dropout, batch_first=True)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, n_layers)
+        self.decoder = nn.Linear(2 * d_model, 1)
     
-    def forward(self):
-        pass
+    def forward(self, audio_src, notes_src, mask):
+        """
+        Args:
+            audio_src: Tensor, shape [batch_num, seq_len, win_size, n_mels]
+            notes_src: Tensor, shape [batch_num, seq_len, 5]
+            mask: Tensor, shape [seq_len, seq_len]
+
+        Returns:
+            Scalar value
+        """
+        audio_src = torch.flatten(audio_src, start_dim=2)
+        src = torch.cat([audio_src, notes_src], dim=2)
+        src = self.embedding(src)
+        src = self.pos_encoder(src)
+        src = self.transformer_encoder(src, mask)
+        src = torch.cat([torch.max(src, dim=1).values, torch.mean(src, dim=1)], dim=1)
+        src = self.decoder(src)
+        return src[0]
+    

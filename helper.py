@@ -208,5 +208,5 @@ if __name__ == "__main__":
     spectro = get_map_audio("test.mp3")
     notes, bar_len, offset = get_map_notes("test.osu")
     num_snaps = get_num_snaps(spectro, bar_len, offset)
-    note_data = get_note_data(notes, num_snaps)
+    notes_data = get_note_data(notes, num_snaps)
     audio_data = get_audio_data(spectro, bar_len, offset)

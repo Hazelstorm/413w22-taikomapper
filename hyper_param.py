@@ -15,8 +15,8 @@ snap = 12
 window_size = 32
 
 # max_snap config
-max_len_bpm = 200
-max_len_ms = 360000 # 6 minutes
+max_len_bpm = 150
+max_len_ms = 240000 # 4 minutes
 
 # max_snap calculation
 max_len_bar = 60000 / max_len_bpm
