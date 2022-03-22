@@ -32,8 +32,8 @@ class PositionalEncoding(nn.Module):
     
 class GeneratorModel(nn.Module):
     
-    def __init__(self, d_model: int = 512, n_heads: int = 4, d_hid: int = 2048,
-                 n_layers: int = 4, dropout: float = 0.5):
+    def __init__(self, d_model: int = 256, n_heads: int = 4, 
+                 d_hid: int = 512, n_layers: int = 4, dropout: float = 0.5):
         """
         Parameters
         ----------
@@ -48,7 +48,9 @@ class GeneratorModel(nn.Module):
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         encoder_layers = TransformerEncoderLayer(d_model, n_heads, d_hid, dropout, batch_first=True)
         self.transformer_encoder = TransformerEncoder(encoder_layers, n_layers)
-        self.decoder = nn.Linear(d_model, 5)
+        self.decoder = nn.Linear(d_model, 20)
+        self.unflatten = nn.Unflatten(2, (5,4))
+        self.softmax = nn.Softmax(dim=2)
         
     def forward(self, src: Tensor, mask: Tensor):
         """
@@ -57,21 +59,23 @@ class GeneratorModel(nn.Module):
             mask: Tensor, shape [batch_num, seq_len, seq_len]
 
         Returns:
-            Tensor, shape [seq_len, 5]
+            Tensor, shape [batch_num, seq_len, 5, 4]
         """
         src = torch.flatten(src, start_dim=2)
         src = self.embedding(src)
         src = self.pos_encoder(src)
         src = self.transformer_encoder(src, mask)
         src = self.decoder(src)
+        src = self.unflatten(src)
+        src = self.softmax(src)
         return src
 
 class DiscriminatorModel(nn.Module):
     
-    def __init__(self, d_model: int = 512, n_heads: int = 4, d_hid: int = 2048,
-                 n_layers: int = 4, dropout: float = 0.5):
+    def __init__(self, d_model: int = 256, n_heads: int = 4, 
+                 d_hid: int = 512, n_layers: int = 4, dropout: float = 0.5):
         super().__init__()
-        self.embedding = nn.Linear(AUDIO_DIM + 5, d_model)
+        self.embedding = nn.Linear(AUDIO_DIM + 20, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
         encoder_layers = TransformerEncoderLayer(d_model, n_heads, d_hid, dropout, batch_first=True)
         self.transformer_encoder = TransformerEncoder(encoder_layers, n_layers)
@@ -81,13 +85,14 @@ class DiscriminatorModel(nn.Module):
         """
         Args:
             audio_src: Tensor, shape [batch_num, seq_len, win_size, n_mels]
-            notes_src: Tensor, shape [batch_num, seq_len, 5]
+            notes_src: Tensor, shape [batch_num, seq_len, 5, 4]
             mask: Tensor, shape [seq_len, seq_len]
 
         Returns:
-            Scalar value
+            Tensor, shape [batch_num, 1]
         """
         audio_src = torch.flatten(audio_src, start_dim=2)
+        notes_src = torch.flatten(notes_src, start_dim=2)
         src = torch.cat([audio_src, notes_src], dim=2)
         src = self.embedding(src)
         src = self.pos_encoder(src)

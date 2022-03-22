@@ -191,9 +191,22 @@ def get_map_data(path, path_dict):
     oni_data = get_note_data(oni_notes, num_snaps)
         
     audio_data = get_audio_data(map_audio, bar_len, offset)
-    notes_data = np.stack([kantan_data, futsuu_data, muzu_data, oni_data], axis=0)
+    notes_data = np.stack([kantan_data, futsuu_data, muzu_data, oni_data], axis=2)
     
     return audio_data, notes_data, bar_len, offset
+
+def get_npy_data(path, get_timing=False):
+    """
+    If get_timing is False (default), returns audio_data and notes_data only
+    Otherwise, returns audio_data, notes_data, timing
+    
+    """
+    audio_data = np.load(os.path.join(path, "audio_data.npy"))
+    notes_data = np.load(os.path.join(path, "notes_data.npy"))
+    if not get_timing:
+        return audio_data, notes_data
+    timing = np.load(os.path.join(path, "timing.npy"))
+    return audio_data, notes_data, timing
         
 
 def plot_spectrogram(spectro):
