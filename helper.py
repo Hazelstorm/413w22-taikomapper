@@ -1,4 +1,4 @@
-import sys, librosa, math, os
+import sys, librosa, math, os, torch
 import numpy as np
 import matplotlib.pyplot as plt
 from hyper_param import *
@@ -218,8 +218,14 @@ def plot_spectrogram(spectro):
     plt.show()
 
 if __name__ == "__main__":
+    # create testing variables
     spectro = get_map_audio("test.mp3")
     notes, bar_len, offset = get_map_notes("test.osu")
     num_snaps = get_num_snaps(spectro, bar_len, offset)
     notes_data = get_note_data(notes, num_snaps)
     audio_data = get_audio_data(spectro, bar_len, offset)
+    notes_src = torch.unsqueeze(torch.Tensor(notes_data), 0)
+    notes_src = torch.tile(torch.unsqueeze(notes_src, 3), (1,1,1,4))
+    audio_src = torch.unsqueeze(torch.Tensor(audio_data), 0)
+    mask = torch.zeros(audio_src.shape[1], audio_src.shape[1])
+    

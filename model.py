@@ -33,7 +33,7 @@ class PositionalEncoding(nn.Module):
 class GeneratorModel(nn.Module):
     
     def __init__(self, d_model: int = 256, n_heads: int = 4, 
-                 d_hid: int = 512, n_layers: int = 4, dropout: float = 0.5):
+                 d_hid: int = 512, n_layers: int = 3, dropout: float = 0.5):
         """
         Parameters
         ----------
@@ -73,7 +73,7 @@ class GeneratorModel(nn.Module):
 class DiscriminatorModel(nn.Module):
     
     def __init__(self, d_model: int = 256, n_heads: int = 4, 
-                 d_hid: int = 512, n_layers: int = 4, dropout: float = 0.5):
+                 d_hid: int = 512, n_layers: int = 3, dropout: float = 0.5):
         super().__init__()
         self.embedding = nn.Linear(AUDIO_DIM + 20, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
