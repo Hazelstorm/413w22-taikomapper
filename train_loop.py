@@ -1,5 +1,7 @@
 
-import torch, os, random
+import torch, os, random, gc
+import torch.nn as nn
+import matplotlib.pyplot as plt
 from model import GeneratorModel, DiscriminatorModel
 from helper import *
 from tqdm import tqdm, trange
@@ -15,7 +17,7 @@ def load_data(npy_path, song):
     
     return audio_data, notes_data, mask
 
-def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
+def train_gan(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=50, g_iters=10):
     """
     Parameters
     ----------
@@ -25,7 +27,7 @@ def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
     d_iter: how many iterations the discriminator trains in each epoch
     g_iter: how many iterations the generator trains in each epoch
     
-    Some Additional Notes
+    Additional Notes
     -----
     -One iteration consists of training on a randomly selected song
     -d_iters should be larger than g_iters
@@ -34,6 +36,9 @@ def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
     
     npy_path = os.path.join("data", "npy")
     npy_lib = os.listdir(npy_path)
+    
+    train_lib = npy_lib[-20:]
+    test_lib = npy_lib[-20:]
     
     # wasserstein gan loss https://agustinus.kristia.de/techblog/2017/02/04/wasserstein-gan/
     dis_losses = []
@@ -47,11 +52,14 @@ def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
         dis.train()
         gen.eval()
         for d in range(d_iters):
-            song = random.choice(npy_lib)
-            print(f"Discriminator Iteration {d}: {song}")
             
             # load data
+            song = random.choice(train_lib)
             audio_data, notes_data, mask = load_data(npy_path, song)
+            if torch.cuda.is_available():
+                audio_data = audio_data.cuda()
+                notes_data = notes_data.cuda()
+                mask = mask.cuda()
             
             # discriminator training step
             dis_optim.zero_grad()
@@ -68,11 +76,14 @@ def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
         dis.eval()
         gen.train()
         for g in range(g_iters):
-            song = random.choice(npy_lib)
-            print(f"Generator Iteration {g}: {song}")
             
             # load data
+            song = random.choice(train_lib)
             audio_data, notes_data, mask = load_data(npy_path, song)
+            if torch.cuda.is_available():
+                audio_data = audio_data.cuda()
+                notes_data = notes_data.cuda()
+                mask = mask.cuda()
             
             # generator training step
             gen_optim.zero_grad()
@@ -86,9 +97,14 @@ def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
         dis_loss = 0
         gen_loss = 0
         with torch.no_grad():
-            for song in tqdm(npy_lib):
+            for song in tqdm(test_lib):
+                
                 # load data
                 audio_data, notes_data, mask = load_data(npy_path, song)
+                if torch.cuda.is_available():
+                    audio_data = audio_data.cuda()
+                    notes_data = notes_data.cuda()
+                    mask = mask.cuda()
                 
                 # eval losses
                 dis_real = dis(audio_data, notes_data, mask)
@@ -97,11 +113,90 @@ def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
                 gen_loss += (-dis_fake).item()
             
         # final epoch losses
-        dis_losses.append(dis_loss / len(npy_lib))
-        gen_losses.append(gen_loss / len(npy_lib))
+        dis_losses.append(dis_loss / len(test_lib))
+        gen_losses.append(gen_loss / len(test_lib))
         
         print(f"Epoch {e} | dis_loss: {dis_loss} | gen_loss: {gen_loss}")
         
     return dis_losses, gen_losses
+
+# testing non-gan training
+def train(model, lr=1e-4, wd=0, num_epochs=20, num_iters=20):
+    """
+    Parameters
+    ----------
+    lr: learning rate
+    wd: weight decay
+    num_epochs: how many sets of iterations to train for
+    num_iters: how many iterations to train in each epoch
+    
+    Additional Notes
+    -----
+    -One iteration consists of training on a randomly selected song
+    
+    """
+    
+    npy_path = os.path.join("data", "npy")
+    npy_lib = os.listdir(npy_path)
+    
+    train_lib = npy_lib[-1:]
+    test_lib = npy_lib[-1:]
+    
+    audio_data, notes_data, mask = load_data(npy_path, train_lib[0]) # TODO remove
+    if torch.cuda.is_available():
+        audio_data = audio_data.cuda()
+        notes_data = notes_data.cuda()
+        mask = mask.cuda()
+    
+    losses = []
+    
+    optim = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
+    loss = nn.CrossEntropyLoss()
+    
+    for e in range(num_epochs):
         
+        model.train()
         
+        for i in range(num_iters):
+        
+            # load data
+            """
+            song = random.choice(train_lib)
+            audio_data, notes_data, mask = load_data(npy_path, song)
+            if torch.cuda.is_available():
+                audio_data = audio_data.cuda()
+                notes_data = notes_data.cuda()
+                mask = mask.cuda()
+            """
+                
+            # training step
+            optim.zero_grad()
+            model_out = model(audio_data, mask)
+            model_loss = loss(model_out, notes_data)
+            model_loss.backward()
+            optim.step()
+            
+        model.eval()
+        
+        # loss evaluation
+        epoch_loss = 0
+        with torch.no_grad():
+            for song in test_lib:
+                
+                # load data
+                audio_data, notes_data, mask = load_data(npy_path, song)
+                if torch.cuda.is_available():
+                    audio_data = audio_data.cuda()
+                    notes_data = notes_data.cuda()
+                    mask = mask.cuda()
+                    
+                model_out = model(audio_data, mask)
+                model_loss = loss(model_out, notes_data)
+                epoch_loss += model_loss.item()
+                
+        # final iteration loss
+        epoch_loss /= len(test_lib)
+        losses.append(epoch_loss)
+        print(f"Epoch {e} | Loss: {epoch_loss}")
+        
+    return losses

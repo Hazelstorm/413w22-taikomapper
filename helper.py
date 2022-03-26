@@ -56,7 +56,7 @@ def get_note_data(notes, num_snaps):
 def get_audio_data(spectro, bar_len, offset):
     num_snaps = get_num_snaps(spectro, bar_len, offset)
     data = np.zeros((num_snaps, 2 * WINDOW_SIZE + 1, spectro.shape[1]))
-    padded_spectro = np.pad(spectro, ((WINDOW_SIZE, WINDOW_SIZE+offset), (0,0)))
+    padded_spectro = np.pad(spectro, pad_width=((WINDOW_SIZE, WINDOW_SIZE+offset), (0,0)), constant_values=np.min(spectro))
     
     for snap_num in range(num_snaps):
         ms = snap_to_ms(bar_len, offset, snap_num)
@@ -74,7 +74,7 @@ def get_map_notes(filepath):
     i = 0
     while (i < len(osu)):
         if osu[i][:4] == "Mode" and osu[i][-2] != "1":
-            print(f"Wrong mode in {filepath}, exiting")
+            print(f"Wrong mode")
             return None, None, None
         if osu[i] == "[TimingPoints]\n":
             timing_points_index = i 
@@ -95,7 +95,7 @@ def get_map_notes(filepath):
     try:
         offset = int(timing_points[0].split(",")[0])
     except:
-        print(f"Found float offset in {filepath}, exiting")
+        print("Found float offset")
         return None, None, None
 
     # check for extra uninherited timing points
@@ -104,7 +104,7 @@ def get_map_notes(filepath):
         ary = timing_point.split(",")
         if ary[6] == "1": 
             # extra uninherited timing point, invalid .osu
-            print(f"Found multiple uninherited timing points in {filepath}, exiting")
+            print("Found multiple uninherited timing points")
             return None, None, None
     
     lst = []
@@ -114,7 +114,10 @@ def get_map_notes(filepath):
         snap_num = ms_to_snap(bar_len, offset, int(ary[2]))
         if snap_num == None:
             # note is not snapped, invalid .osu
-            print(f"Found unsnapped note at {ary[2]}ms, exiting")
+            print(f"Found unsnapped note")
+            return None, None, None
+        elif snap_num > MAX_SNAP:
+            print("Map exceeds max snap limit")
             return None, None, None
         else:
            lst.append((snap_num, get_note_type(ary[4])),) 
@@ -158,25 +161,13 @@ def get_map_audio(filepath, kwargs=get_mel_param()):
     
     return spectro
 
-def get_map_data(path, path_dict):
+def get_map_data(path, path_dict, diff):
     
     audio = path_dict["audio"]
-    kantan = path_dict["kantan"]
-    futsuu = path_dict["futsuu"]
-    muzu = path_dict["muzu"]
-    oni = path_dict["oni"]
+    diff_path = path_dict[diff]
     
-    kantan_notes, bar_len, offset = get_map_notes(os.path.join(path, kantan))
-    if kantan_notes is None:
-        return None, None, None, None
-    futsuu_notes, bar_len, offset = get_map_notes(os.path.join(path, futsuu))
-    if futsuu_notes is None:
-        return None, None, None, None
-    muzu_notes, bar_len, offset = get_map_notes(os.path.join(path, muzu))
-    if muzu_notes is None:
-        return None, None, None, None
-    oni_notes, bar_len, offset = get_map_notes(os.path.join(path, oni))
-    if oni_notes is None:
+    notes, bar_len, offset = get_map_notes(os.path.join(path, diff_path))
+    if notes is None:
         return None, None, None, None
         
     map_audio = get_map_audio(os.path.join(path, audio))
@@ -185,13 +176,8 @@ def get_map_data(path, path_dict):
         print("Audio exceeds max snap limit")
         return None, None, None, None
     
-    kantan_data = get_note_data(kantan_notes, num_snaps)
-    futsuu_data = get_note_data(futsuu_notes, num_snaps)
-    muzu_data = get_note_data(muzu_notes, num_snaps)
-    oni_data = get_note_data(oni_notes, num_snaps)
-        
+    notes_data = get_note_data(notes, num_snaps)
     audio_data = get_audio_data(map_audio, bar_len, offset)
-    notes_data = np.stack([kantan_data, futsuu_data, muzu_data, oni_data], axis=2)
     
     return audio_data, notes_data, bar_len, offset
 
@@ -218,14 +204,16 @@ def plot_spectrogram(spectro):
     plt.show()
 
 if __name__ == "__main__":
+    test = False
     # create testing variables
-    spectro = get_map_audio("test.mp3")
-    notes, bar_len, offset = get_map_notes("test.osu")
-    num_snaps = get_num_snaps(spectro, bar_len, offset)
-    notes_data = get_note_data(notes, num_snaps)
-    audio_data = get_audio_data(spectro, bar_len, offset)
-    notes_src = torch.unsqueeze(torch.Tensor(notes_data), 0)
-    notes_src = torch.tile(torch.unsqueeze(notes_src, 3), (1,1,1,4))
-    audio_src = torch.unsqueeze(torch.Tensor(audio_data), 0)
-    mask = torch.zeros(audio_src.shape[1], audio_src.shape[1])
+    if test:
+        spectro = get_map_audio("test.mp3")
+        notes, bar_len, offset = get_map_notes("test.osu")
+        num_snaps = get_num_snaps(spectro, bar_len, offset)
+        notes_data = get_note_data(notes, num_snaps)
+        audio_data = get_audio_data(spectro, bar_len, offset)
+        notes_src = torch.unsqueeze(torch.Tensor(notes_data), 0)
+        notes_src = torch.tile(torch.unsqueeze(notes_src, 3), (1,1,1,4))
+        audio_src = torch.unsqueeze(torch.Tensor(audio_data), 0)
+        mask = torch.zeros(audio_src.shape[1], audio_src.shape[1])
     

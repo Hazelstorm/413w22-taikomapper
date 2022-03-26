@@ -33,7 +33,7 @@ class PositionalEncoding(nn.Module):
 class GeneratorModel(nn.Module):
     
     def __init__(self, d_model: int = 256, n_heads: int = 4, 
-                 d_hid: int = 512, n_layers: int = 3, dropout: float = 0.5):
+                 d_hid: int = 512, n_layers: int = 3, dropout: float = 0.1):
         """
         Parameters
         ----------
@@ -73,7 +73,7 @@ class GeneratorModel(nn.Module):
 class DiscriminatorModel(nn.Module):
     
     def __init__(self, d_model: int = 256, n_heads: int = 4, 
-                 d_hid: int = 512, n_layers: int = 3, dropout: float = 0.5):
+                 d_hid: int = 512, n_layers: int = 3, dropout: float = 0.1):
         super().__init__()
         self.embedding = nn.Linear(AUDIO_DIM + 20, d_model)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
@@ -100,4 +100,26 @@ class DiscriminatorModel(nn.Module):
         src = torch.cat([torch.max(src, dim=1).values, torch.mean(src, dim=1)], dim=1)
         src = self.decoder(src)
         return src[0]
+    
+class TransformerModel(GeneratorModel):
+    
+    def __init__(self, d_model: int = 512, n_heads: int = 8, 
+                 d_hid: int = 2048, n_layers: int = 6, dropout: float = 0.1):
+        """
+        Parameters
+        ----------
+        d_model: dimension of vector embedding
+        nhead: number of transformer encoders
+        d_hid: hidden size of encoder feedforward component
+        n_layers: number of encoders
+        
+        """
+        super().__init__()
+    
+gen = GeneratorModel()
+dis = DiscriminatorModel()
+
+if torch.cuda.is_available():
+    gen = gen.cuda()
+    dis = dis.cuda()
     
