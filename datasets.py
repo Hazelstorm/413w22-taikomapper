@@ -8,6 +8,13 @@ years = ["2008", "2009", "2010", "2011", "2012", "2013", "2014",
          "2015", "2016", "2017", "2018", "2019", "2020", "2021"]
 songs = {}
 
+"""
+Finds all mapsets in the data/20** folders that contain all of the following difficulty names:
+"Kantan", "Futsuu", "Muzukashii", "Oni"
+For each such mapset, store the audio and .osu filenames in a dictionary:
+{'audio': <audio_file.mp3>, 'kantan': <kantan.osu>, ...}
+Store all such dictionaries in data/data.pkl.
+"""
 def create_directory():
     
     total_sets = 0
@@ -15,6 +22,8 @@ def create_directory():
     for year in years:
         num_sets = 0
         year_path = os.path.join("data", year)
+        if not (os.path.isdir(year_path)):
+            continue
         files = os.listdir(year_path)
         for song in files:
             song_path = os.path.join(year_path, song)
@@ -57,6 +66,10 @@ def create_directory():
         
     print(f"Total Mapsets:  {total_sets}")
 
+
+"""
+Processes all mapsets in data/data.pkl (see create_directory) into numpy data.
+"""
 def create_data(force=False):
     
     sets = 0
@@ -88,4 +101,3 @@ def create_data(force=False):
     
     print(f"Total Valid Mapsets: {sets}")
     print(f"Total Time Steps: {time_steps}")
-        
