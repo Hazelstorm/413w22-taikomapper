@@ -169,6 +169,9 @@ def get_map_data(path, path_dict, diff):
     notes, bar_len, offset = get_map_notes(os.path.join(path, diff_path))
     if notes is None:
         return None, None, None, None
+    if offset < 0:
+        print("Found negative offset")
+        return None, None, None, None
         
     map_audio = get_map_audio(os.path.join(path, audio))
     num_snaps = get_num_snaps(map_audio, bar_len, offset)
@@ -187,8 +190,9 @@ def get_npy_data(path, get_timing=False):
     Otherwise, returns audio_data, notes_data, timing
     
     """
-    audio_data = np.load(os.path.join(path, "audio_data.npy"))
     notes_data = np.load(os.path.join(path, "notes_data.npy"))
+    tail, head = os.path.split(path)
+    audio_data = np.load(os.path.join(os.path.split(tail)[0], "audio", head, "audio_data.npy"))
     if not get_timing:
         return audio_data, notes_data
     timing = np.load(os.path.join(path, "timing.npy"))
