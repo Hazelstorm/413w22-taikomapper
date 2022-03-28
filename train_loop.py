@@ -1,8 +1,10 @@
 
-import torch, os, random
-from model import GeneratorModel, DiscriminatorModel
+import torch, os, random, gc
+import torch.nn as nn
+import matplotlib.pyplot as plt
 from helper import *
 from tqdm import tqdm, trange
+from loader import get_dataloader
 
 random.seed(87)
 
@@ -15,93 +17,69 @@ def load_data(npy_path, song):
     
     return audio_data, notes_data, mask
 
-def train(dis, gen, lr=5e-5, wd=0, num_epochs=20, d_iters=5, g_iters=1):
+def train(model, lr=1e-4, wd=0, num_epochs=20, num_iters=20):
     """
     Parameters
     ----------
     lr: learning rate
     wd: weight decay
     num_epochs: how many sets of iterations to train for
-    d_iter: how many iterations the discriminator trains in each epoch
-    g_iter: how many iterations the generator trains in each epoch
+    num_iters: how many iterations to train in each epoch
     
-    Some Additional Notes
+    Additional Notes
     -----
     -One iteration consists of training on a randomly selected song
-    -d_iters should be larger than g_iters
     
     """
     
-    npy_path = os.path.join("data", "npy")
-    npy_lib = os.listdir(npy_path)
+    npy_path = os.path.join("data", "npy", "futsuu")
+    train_loader = get_dataloader(npy_path, 0, 0.8)
+    val_loader = get_dataloader(npy_path, 0.8, 0.9)
     
-    # wasserstein gan loss https://agustinus.kristia.de/techblog/2017/02/04/wasserstein-gan/
-    dis_losses = []
-    gen_losses = []
+    losses = []
     
-    dis_optim = torch.optim.RMSprop(dis.parameters(), lr=lr, weight_decay=wd)
-    gen_optim = torch.optim.RMSprop(gen.parameters(), lr=lr, weight_decay=wd)
-
+    optim = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
+    loss = nn.CrossEntropyLoss(reduction="mean")
+    
     for e in range(num_epochs):
         
-        dis.train()
-        gen.eval()
-        for d in range(d_iters):
-            song = random.choice(npy_lib)
-            print(f"Discriminator Iteration {d}: {song}")
+        for audio_data, notes_data in tqdm(train_loader):
             
-            # load data
-            audio_data, notes_data, mask = load_data(npy_path, song)
-            
-            # discriminator training step
-            dis_optim.zero_grad()
-            dis_real = dis(audio_data, notes_data, mask)
-            dis_fake = dis(audio_data, gen(audio_data, mask), mask)
-            dis_loss = dis_fake - dis_real
-            dis_loss.backward()
-            dis_optim.step()
-            
-            # clip parameters
-            for p in dis.parameters():
-                p.data.clamp_(-0.01, 0.01)
-                    
-        dis.eval()
-        gen.train()
-        for g in range(g_iters):
-            song = random.choice(npy_lib)
-            print(f"Generator Iteration {g}: {song}")
-            
-            # load data
-            audio_data, notes_data, mask = load_data(npy_path, song)
-            
-            # generator training step
-            gen_optim.zero_grad()
-            dis_fake = dis(audio_data, gen(audio_data, mask), mask)
-            gen_loss = -dis_fake
-            gen_loss.backward()
-            gen_optim.step()
+            model.train()
         
-        dis.eval()
-        gen.eval()
-        dis_loss = 0
-        gen_loss = 0
-        with torch.no_grad():
-            for song in tqdm(npy_lib):
-                # load data
-                audio_data, notes_data, mask = load_data(npy_path, song)
+            mask = torch.Tensor(audio_data.shape[1], audio_data.shape[1])
+            if torch.cuda.is_available():
+                audio_data = audio_data.cuda()
+                notes_data = notes_data.cuda()
+                mask = mask.cuda()
                 
-                # eval losses
-                dis_real = dis(audio_data, notes_data, mask)
-                dis_fake = dis(audio_data, gen(audio_data, mask), mask)
-                dis_loss += (dis_fake - dis_real).item()
-                gen_loss += (-dis_fake).item()
+            # training step
+            optim.zero_grad()
+            model_out = model(audio_data, mask)
+            model_loss = loss(model_out, notes_data)
+            model_loss.backward()
+            optim.step()
             
-        # final epoch losses
-        dis_losses.append(dis_loss / len(npy_lib))
-        gen_losses.append(gen_loss / len(npy_lib))
+            model.eval()
         
-        print(f"Epoch {e} | dis_loss: {dis_loss} | gen_loss: {gen_loss}")
+        # loss evaluation
+        epoch_loss = 0
+        with torch.no_grad():
+            for audio_data, notes_data in tqdm(val_loader):
+            
+                mask = torch.Tensor(audio_data.shape[1], audio_data.shape[1])
+                if torch.cuda.is_available():
+                    audio_data = audio_data.cuda()
+                    notes_data = notes_data.cuda()
+                    mask = mask.cuda()
+                    
+                model_out = model(audio_data, mask)
+                model_loss = loss(model_out, notes_data)
+                epoch_loss += model_loss.item()
+            
+        # final iteration loss
+        epoch_loss /= len(val_loader)
+        losses.append(epoch_loss)
+        print(f"Epoch {e} | Loss: {epoch_loss}")
         
-    return dis_losses, gen_losses
-        
-        
+    return losses
