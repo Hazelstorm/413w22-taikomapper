@@ -73,10 +73,16 @@ def create_directory():
 
 
 """
-Processes all mapsets in data/data.pkl (see create_directory()).
+Processes all mapsets in data/data.pkl (see create_directory()) into numpy data and stores it.
 
-For each map in data/data.pkl, determine its <difficulty> ('Kantan', 'Futsuu', 'Muzukashii', 'Oni').
-Creates a folder data/npy/<difficulty>/<mapset_folder_name>/
+For each mapset in data/data.pkl, if the mapset has any valid difficulties:
+- Create a folder data/npy/audio/data <mapset_folder_name>/, and store the audio's numpy
+  as audio_data.npy in the newly-created folder.
+- For each valid difficulty, create a folder data/npy/<difficulty_name>/data <mapset_folder_name>/, 
+  and store the notes' data in notes_data.npy, and timing data (including the length of one bar in ms,
+ and offset (time of first beat in ms)) in timing.npy
+
+force=True allows overwrites of existing folders/data if needed.
 """
 def create_data(force=False):
     
@@ -90,30 +96,36 @@ def create_data(force=False):
         songs = pickle.load(in_file)
         
     for path in songs:
+        path_dict = songs[path]
+        audio_filename = path_dict["audio"]
+        # get map audio only if there is a valid difficulty, as this is time consuming
+        map_audio = None
+        num_snaps = None
+        audio_data = None
+        audio_directory = os.path.join("data", "npy", "audio", path.replace("\\", " "))
+        
         for diff in diffs:
-            directory = os.path.join("data", "npy", diff, path.replace("\\", " "))
-            audio_directory = os.path.join("data", "npy", "audio", path.replace("\\", " "))
-            if (not os.path.exists(directory)) or force:
-                path_dict = songs[path]
-            
+            diff_directory = os.path.join("data", "npy", diff, path.replace("\\", " "))
+            if (not os.path.exists(diff_directory)) or force:
                 if diff in path_dict:
-                    try:
-                        audio_data, notes_data, bar_len, offset = get_map_data(path, path_dict, diff)
-                    except Exception:
-                        print(traceback.print_exc())
-                        audio_data = None
-                    
-                    if audio_data is not None:
+                    diff_path = os.path.join(path, path_dict[diff])
+                    notes, bar_len, offset = get_map_notes(diff_path)
+                    if not (notes is None):
+                        if (map_audio is None):
+                            map_audio = get_map_audio(os.path.join(path, audio_filename))
+                            num_snaps = get_num_snaps(map_audio, bar_len, offset)
+                            audio_data = get_audio_data(map_audio, bar_len, offset)
+                        notes_data = get_note_data(notes, num_snaps)
                         print(f"Saving {path} {diff}")
                         total_diffs[diff] += 1
                         time_steps[diff] += audio_data.shape[0]
-                        if not os.path.exists(directory):
-                            os.makedirs(directory)
+                        if not os.path.exists(diff_directory):
+                            os.makedirs(diff_directory)
                         if not os.path.exists(audio_directory):
                             os.makedirs(audio_directory)
                         np.save(os.path.join(audio_directory, "audio_data.npy"), audio_data)
-                        np.save(os.path.join(directory, "notes_data.npy"), notes_data)
-                        np.save(os.path.join(directory, "timing.npy"), np.array([bar_len, offset]))
+                        np.save(os.path.join(diff_directory, "notes_data.npy"), notes_data)
+                        np.save(os.path.join(diff_directory, "timing.npy"), np.array([bar_len, offset]))
     
     for diff in diffs:
         print(f"Total Valid {diff} Difficulties: {total_diffs[diff]}")

@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from hyper_param import *
 
+from pydub import AudioSegment # to convert mp3 to wav
+
 SNAP = get_snap() # Number of snaps in one bar
 WINDOW_SIZE = get_window_size() # Input time window (in ms) around each snap
 MAX_SNAP = get_max_snap() # Maximum number of snaps in song
@@ -37,16 +39,7 @@ def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
     error = abs(snap_num - round(snap_num))
     if error < 0.02 * SNAP:
         return round(snap_num)
-
-
-"""
-TODO: document this (or delete)
-"""
-def get_line(osu, header):
-    for i, line in enumerate(osu):
-        if header in line:
-            return i
-
+        
 """
 Convert indicies into one-hot vectors by
     1. Creating an identity matrix of shape [total, total]
@@ -91,9 +84,9 @@ Return the number of snaps in the spectrogram spectro.
 def get_num_snaps(spectro, bar_len, offset):
     return round((spectro.shape[0] - offset) // bar_len * SNAP)
 
-
 """
-Return the number of snaps in the spectrogram spectro. 
+Given a list of <notes> from get_map_notes(), return a sequence of
+<num_snaps> notes that list the note occurring at each snap (including no note).
 """
 def get_note_data(notes, num_snaps):
     data = np.zeros((num_snaps, 5))
@@ -104,6 +97,54 @@ def get_note_data(notes, num_snaps):
     data[:,0] = data[:,0] + 1 - np.sum(data, axis=1)
     
     return data
+
+
+"""
+Given the <filepath> to a .mp3 and a window size, returns a numpy array
+containing spectrogram data for the .mp3 file.
+
+The mp3 is sampled in a window of size 2 * WINDOW_SIZE around each snap.
+
+convert=True converts mp3 files into wav before processing, as librosa doesn't
+handle mp3 efficiently.
+"""
+def get_map_audio(filepath, convert=True, kwargs=get_mel_param()): 
+    sr = kwargs['sr']
+    try: 
+        if convert and filepath.endswith(".mp3"):
+            wav = AudioSegment.from_mp3(filepath)
+            wav_filepath = filepath + ".wav"
+            wav.export(wav_filepath, format='wav', bitrate="96k")
+            y, sr = librosa.load(wav_filepath, sr=sr)
+            os.remove(wav_filepath)
+        else:
+            y, sr = librosa.load(filepath, sr=sr)
+    except Exception as e:
+        print(f"{filepath}: error while processing audio file: {e}")
+        exit()
+    
+    # Get hyperparam for mp3 to spectrogram
+    hop_length = kwargs['hop_length']
+    win_length = kwargs['win_length']
+    n_fft = kwargs['n_fft']
+    n_mels = kwargs['n_mels']
+    pwr_spect = kwargs['power_spectrogram']
+    fmin = kwargs['fmin']
+    fmax = kwargs['fmax']
+    
+    # TODO Uh taken from github... will change when I understand how to use librosa 
+    
+    D = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
+                            win_length=win_length)) ** pwr_spect
+    
+    S = librosa.feature.melspectrogram(S=D, n_fft=n_fft, n_mels=n_mels,
+                                       fmin=fmin, fmax=fmax)
+    
+    dbs = librosa.core.power_to_db(S)
+
+    spectro = np.squeeze(dbs).T
+    
+    return spectro
 
 """
 Returns the audio data for a spectrogram, consisting of a sequence of "snippets" from <spectro> around each snap. 
@@ -211,43 +252,7 @@ def get_map_notes(filepath):
     return lst, bar_len, offset
 
 """
-Given the <filepath> to a .mp3 and a window size, returns a numpy array
-containing spectrogram data for the .mp3 file.
-
-The mp3 is sampled in a window of size 2 * WINDOW_SIZE around each snap.
-"""
-def get_map_audio(filepath, kwargs=get_mel_param()): 
-    sr = kwargs['sr']
-    try: 
-        y, sr = librosa.load(filepath, sr=sr)
-    except Exception:
-        print("{filepath}: file error")
-        exit()
-    
-    # Get hyperparam for mp3 to spectrogram
-    hop_length = kwargs['hop_length']
-    win_length = kwargs['win_length']
-    n_fft = kwargs['n_fft']
-    n_mels = kwargs['n_mels']
-    pwr_spect = kwargs['power_spectrogram']
-    fmin = kwargs['fmin']
-    fmax = kwargs['fmax']
-    
-    # TODO Uh taken from github... will change when I understand how to use librosa 
-    
-    D = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
-                            win_length=win_length)) ** pwr_spect
-    
-    S = librosa.feature.melspectrogram(S=D, n_fft=n_fft, n_mels=n_mels,
-                                       fmin=fmin, fmax=fmax)
-    
-    dbs = librosa.core.power_to_db(S)
-
-    spectro = np.squeeze(dbs).T
-    
-    return spectro
-
-"""
+Note: DEPRACATED
 Given a path to a mapset, a path_dict (see create_directory() in datasets.py), and a difficulty
 name (from 'Kantan', 'Futsuu', 'Muzukashii', 'Oni'), attempt to extract and return the following:
 - Audio data for the map, using get_audio_data()
@@ -256,6 +261,8 @@ name (from 'Kantan', 'Futsuu', 'Muzukashii', 'Oni'), attempt to extract and retu
 - offset
 
 Returns None, None, None, None upon failure.
+
+Note: DEPRACATED
 """
 def get_map_data(path, path_dict, diff):
     

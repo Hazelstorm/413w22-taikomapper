@@ -1,9 +1,13 @@
 import math
 
+"""
+All the hyperparameters will be stored here.
+"""
+
 # melspectrogram config
 n_fft = 512
 win_length = None  # default = n_fft
-sr = 22000
+sr = 22000 # Audio Sampling Rate
 hop_length = sr // 1000
 n_mels = 40
 fmin = 0.0
@@ -31,6 +35,10 @@ def get_window_size():
 def get_max_snap():
     return max_snap
 
+
+"""
+Returns all parameters for mel.
+"""
 def get_mel_param():
     return {
         'n_fft': n_fft,
