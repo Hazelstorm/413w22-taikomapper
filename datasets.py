@@ -116,7 +116,7 @@ def create_data(force=False):
                             num_snaps = get_num_snaps(map_audio, bar_len, offset)
                             audio_data = get_audio_data(map_audio, bar_len, offset)
                         notes_data = get_note_data(notes, num_snaps)
-                        print(f"Saving {path} {diff}")
+                        print(f"{os.path.basename(path)} [{diff}]: Saving...")
                         total_diffs[diff] += 1
                         time_steps[diff] += audio_data.shape[0]
                         if not os.path.exists(diff_directory):

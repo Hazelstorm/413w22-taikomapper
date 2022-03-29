@@ -39,7 +39,7 @@ def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
     error = abs(snap_num - round(snap_num))
     if error < 0.02 * SNAP:
         return round(snap_num)
-        
+
 """
 Convert indicies into one-hot vectors by
     1. Creating an identity matrix of shape [total, total]
@@ -184,7 +184,7 @@ def get_map_notes(filepath):
     i = 0
     while (i < len(osu)):
         if osu[i][:4] == "Mode" and osu[i][-2] != "1": # Taiko mode maps have "Mode: 1"
-            print(f"{filepath}: Wrong mode")
+            print(f"{os.path.basename(filepath)}: Wrong mode")
             return None, None, None
         if osu[i] == "[TimingPoints]\n":
             timing_points_index = i 
@@ -205,11 +205,11 @@ def get_map_notes(filepath):
     try:
         offset = int(timing_points[0].split(",")[0])
     except:
-        print(f"{filepath}: Found float offset")
+        print(f"{os.path.basename(filepath)}: Found float offset")
         return None, None, None
     
     if offset < 0:
-        print(f"{filepath}: Found negative offset")
+        print(f"{os.path.basename(filepath)}: Found negative offset")
         return None, None, None
 
     # check for extra uninherited timing points
@@ -219,7 +219,7 @@ def get_map_notes(filepath):
         ary = timing_point.split(",")
         if ary[6] == "1": 
             # extra uninherited timing point, invalid .osu
-            print(f"{filepath}: Found multiple uninherited timing points")
+            print(f"{os.path.basename(filepath)}: Found multiple uninherited timing points")
             return None, None, None
 
     # Returns the snap and the type of hit_object.
@@ -229,10 +229,10 @@ def get_map_notes(filepath):
         snap_num = ms_to_snap(bar_len, offset, int(ary[2]))
         if snap_num == None:
             # note is not snapped, invalid .osu
-            print(f"{filepath}: Found unsnapped note")
+            print(f"{os.path.basename(filepath)}: Found unsnapped note")
             return None
         elif snap_num > MAX_SNAP:
-            print(f"{filepath}: Map exceeds max snap limit")
+            print(f"{os.path.basename(filepath)}: Map exceeds max snap limit")
             return None
         else:
             return snap_num, get_note_type(ary[4])
