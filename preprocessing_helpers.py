@@ -1,4 +1,4 @@
-import librosa, math, os, torch
+import librosa, math, os
 import numpy as np
 import matplotlib.pyplot as plt
 from hyper_param import *
@@ -87,13 +87,10 @@ def get_note_data(notes, num_snaps):
     
     return data
 
-
 """
 Given the <filepath> to a .mp3 and a window size, returns a numpy array
 containing spectrogram data for the .mp3 file.
-
 The mp3 is sampled in a window of size 2 * WINDOW_SIZE around each snap.
-
 convert=True converts mp3 files into wav before processing, as librosa doesn't
 handle mp3 efficiently.
 """
@@ -111,8 +108,8 @@ def get_map_audio(filepath, convert=True, kwargs=get_mel_param()):
     except Exception as e:
         print(f"{filepath}: error while processing audio file: {e}")
         exit()
-    
-    # Get hyperparams for audio to spectrogram
+
+    # Get hyperparam for mp3 to spectrogram
     hop_length = kwargs['hop_length']
     win_length = kwargs['win_length']
     n_fft = kwargs['n_fft']
@@ -120,20 +117,19 @@ def get_map_audio(filepath, convert=True, kwargs=get_mel_param()):
     pwr_spect = kwargs['power_spectrogram']
     fmin = kwargs['fmin']
     fmax = kwargs['fmax']
-    
+
     # TODO Uh taken from github... will change when I understand how to use librosa 
-    
+
     D = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
                             win_length=win_length)) ** pwr_spect
-    
-    S = librosa.feature.melspectrogram(y=D, sr=sr, n_fft=n_fft, n_mels=n_mels,
-                                       hop_length=hop_length, 
+
+    S = librosa.feature.melspectrogram(S=D, n_fft=n_fft, n_mels=n_mels,
                                        fmin=fmin, fmax=fmax)
-    
+
     dbs = librosa.core.power_to_db(S)
 
     spectro = np.squeeze(dbs).T
-    
+
     return spectro
 
 """
@@ -170,25 +166,25 @@ Returns None, None, None and prints an error if the map satisfies one of the fol
 """
 def get_map_notes(filepath):
     with open(filepath, encoding="utf8") as file:
-        osu = file.readlines()
+        osu_file = file.readlines()
     i = 0
-    while (i < len(osu)):
-        if osu[i][:4] == "Mode" and osu[i][-2] != "1": # Taiko mode maps have "Mode: 1"
+    while (i < len(osu_file)):
+        if osu_file[i][:4] == "Mode" and osu_file[i][-2] != "1": # Taiko mode maps have "Mode: 1"
             print(f"{os.path.basename(filepath)}: Wrong mode")
             return None, None, None
-        if osu[i] == "[TimingPoints]\n":
+        if osu_file[i] == "[TimingPoints]\n":
             timing_points_index = i 
-            while (i < len(osu) and osu[i] != "\n"):
+            while (i < len(osu_file) and osu_file[i] != "\n"):
                 i += 1
             timing_points_endpoint = i
-        if osu[i] == "[HitObjects]\n":
+        if osu_file[i] == "[HitObjects]\n":
             hit_objects_index = i
-            while (i < len(osu) and osu[i] != "\n"):
+            while (i < len(osu_file) and osu_file[i] != "\n"):
                 i += 1
             hit_objects_endpoint = i
         i += 1
-    timing_points = osu[timing_points_index+1: timing_points_endpoint] 
-    hit_objects = osu[hit_objects_index+1: hit_objects_endpoint]
+    timing_points = osu_file[timing_points_index+1: timing_points_endpoint] 
+    hit_objects = osu_file[hit_objects_index+1: hit_objects_endpoint]
     
     # set offset and bar_len according to first timing point
     bar_len = float(timing_points[0].split(",")[1])
