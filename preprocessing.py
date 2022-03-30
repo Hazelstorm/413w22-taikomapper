@@ -2,6 +2,11 @@ import os, pickle
 import numpy as np
 from preprocessing_helpers import *
 
+data_directory = "data"
+pickle_data_path = os.path.join(data_directory, "data.pkl") # file for all song names and difficulties
+npy_data_directory = os.path.join(data_directory, "npy") # directory for all preprocessed numpy data
+
+
 # years = ["2008", "2009", "2010", "2011", "2012", "2013", "2014", 
 #          "2015", "2016", "2017", "2018", "2019", "2020", "2021"]
 # diffs = ["kantan", "futsuu", "muzukashii", "oni"]
@@ -18,7 +23,7 @@ For each such mapset, store the audio and .osu filenames in a dictionary:
 {'audio': <audio_file.mp3>, 'kantan': <kantan.osu>, ...}
 Store all such dictionaries in data/data.pkl.
 """
-def create_directory():
+def create_path_dict():
     
     total_sets = 0
     total_diffs = 0
@@ -26,7 +31,7 @@ def create_directory():
     for year in years:
         num_sets = 0
         num_diffs = 0
-        year_path = os.path.join("data", year)
+        year_path = os.path.join(data_directory, year)
         if not (os.path.isdir(year_path)):
             continue
         files = os.listdir(year_path)
@@ -63,14 +68,14 @@ def create_directory():
     
         print(f"[{year}] Mapsets: {num_sets}, Difficulties: {num_diffs}")
     
-    with open(os.path.join("data", "data.pkl"), "wb") as out_file:
+    with open(pickle_data_path, "wb") as out_file:
         pickle.dump(songs, out_file)
         
     print(f"Total Mapsets: {total_sets}, Total Difficulties:  {total_diffs}")
 
 
 """
-Processes all mapsets in data/data.pkl (see create_directory()) into numpy data and stores it.
+Processes all mapsets in data/data.pkl (see create_path_dict()) into numpy data and stores it.
 
 For each mapset in data/data.pkl, if the mapset has any valid difficulties:
 - Create a folder data/npy/audio/data <mapset_folder_name>/, and store the audio's numpy
@@ -89,7 +94,7 @@ def create_data(force=False):
         total_diffs[diff] = 0
         time_steps[diff] = 0
     
-    with open(os.path.join("data", "data.pkl"), "rb") as in_file:
+    with open(pickle_data_path, "rb") as in_file:
         songs = pickle.load(in_file)
         
     for path in songs:
@@ -99,10 +104,10 @@ def create_data(force=False):
         map_audio = None
         num_snaps = None
         audio_data = None
-        audio_directory = os.path.join("data", "npy", "audio", path.replace("\\", " "))
+        audio_directory = os.path.join(npy_data_directory, "audio", path.replace("\\", " "))
         
         for diff in diffs:
-            diff_directory = os.path.join("data", "npy", diff, path.replace("\\", " "))
+            diff_directory = os.path.join(npy_data_directory, diff, path.replace("\\", " "))
             if (not os.path.exists(diff_directory)) or force:
                 if diff in path_dict:
                     diff_path = os.path.join(path, path_dict[diff])
@@ -127,5 +132,9 @@ def create_data(force=False):
     for diff in diffs:
         print(f"Total Valid {diff} Difficulties: {total_diffs[diff]}")
         print(f"Total {diff} Time Steps: {time_steps[diff]}")
-    
-create_data()
+
+
+if __name__ == "__main__":
+    if not os.path.exists(pickle_data_path):
+        create_path_dict()
+    create_data()
