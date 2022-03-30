@@ -2,5 +2,5 @@
 
 Dependencies
 
-Librosa, Python 3.8
+Python 3.8, librosa, ffmpeg, pydub, PyTorch
 
