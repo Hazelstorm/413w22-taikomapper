@@ -4,10 +4,13 @@ from torch.utils.data import Dataset, DataLoader
 from helper import *
 import hyper_param
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 HIDDEN_SIZE = 10
 
 WEIGHTS = torch.tensor([0.01, 1, 1, 2, 2])
+if torch.cuda.is_available():
+    WEIGHTS = WEIGHTS.cuda()
 
 class MapDataset2(Dataset): # overfitting to one song
     def __init__(self):
@@ -60,6 +63,12 @@ def train_rnn_network(model, num_iters=100, learning_rate=1e-3, wd=0, checkpoint
     
         if checkpoint_path and iter_num % 100 == 0:
             torch.save(model.state_dict(), checkpoint_path.format(iter_num))
+            
+    return losses
 
 model = taikoRNN()
-train_rnn_network(model, learning_rate = 1e-4, num_iters=10000, wd=0, checkpoint_path="checkpoint/iter-{}.pt")
+if torch.cuda.is_available():
+    model = model.cuda()
+losses = train_rnn_network(model, learning_rate = 1e-4, num_iters=10000, wd=0, checkpoint_path="checkpoint/iter-{}.pt")
+plt.plot(losses)
+plt.show()
