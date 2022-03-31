@@ -80,7 +80,7 @@ kat finisher: 4
 def get_note_data(notes, song_len):
     data = np.zeros((song_len), dtype=np.ushort)
     for note in notes:
-        if (0 <= note[0] <= song_len-1):
+        if (0 <= note[0] and note[0] <= song_len-1):
            data[note[0]] = note[1]
     return data
 
