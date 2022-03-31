@@ -1,9 +1,7 @@
-import sys, librosa, math, os, torch
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from hyper_param import *
-
-from pydub import AudioSegment # to convert mp3 to wav
 
 SNAP = get_snap() # Number of snaps in one bar
 WINDOW_SIZE = get_window_size() # Input time window (in ms) around each snap
