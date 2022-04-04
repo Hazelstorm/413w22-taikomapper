@@ -10,7 +10,6 @@ Return whether bit i is set in x.
 def bit_flag(x, i):
     return bool(x & (1 << i))
 
-
 """
 Converts an integer <note>, representing the note type in .osu files (see below), to
 an integer representing the note type in our model.
@@ -41,7 +40,7 @@ The list of notes will contain a sequence of these (<time>, <type>) tuples.
 
 Returns None and prints an error if the map isn't in Taiko mode.
 """
-def get_map_notes(filepath):
+def get_map_data(filepath):
     with open(filepath, encoding="utf8") as file:
         osu_file = file.readlines()
     i = 0
@@ -49,6 +48,9 @@ def get_map_notes(filepath):
         if osu_file[i][:4] == "Mode" and osu_file[i][-2] != "1": # Taiko mode maps have "Mode: 1"
             print(f"{os.path.basename(filepath)}: Wrong mode")
             return None, None, None
+        if osu_file[i] == "[TimingPoints]\n":
+            offset = float(osu_file[i+1].split(",")[0])
+            bar_len = float(osu_file[i+1].split(",")[1])
         if osu_file[i] == "[HitObjects]\n":
             hit_objects_index = i
             while (i < len(osu_file) and osu_file[i] != "\n"):
@@ -64,7 +66,7 @@ def get_map_notes(filepath):
         time = int(ary[2])
         type = get_note_type(ary[4])
         lst.append((time, type))
-    return lst
+    return lst, offset, bar_len
 
 """
 Given a list of <notes> from get_map_notes(), create an array of length <song_len>, where 

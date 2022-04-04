@@ -1,5 +1,6 @@
 import os, pickle
 import numpy as np
+import json
 from preprocessing_helpers_2 import *
 
 data_directory = "data"
@@ -109,7 +110,11 @@ def create_data(force=False):
             if (not os.path.exists(diff_directory)) or force:
                 if diff in path_dict:
                     diff_path = os.path.join(path, path_dict[diff])
-                    notes = get_map_notes(diff_path)
+                    notes, offset, bar_len = get_map_data(diff_path)
+                    timing_data = {
+                        "offset": offset,
+                        "bar_len": bar_len
+                    }
                     if not (notes is None):
                         if (map_audio is None):
                             map_audio = get_map_audio(os.path.join(path, audio_filename))
@@ -122,8 +127,11 @@ def create_data(force=False):
                             os.makedirs(diff_directory)
                         if not os.path.exists(audio_directory):
                             os.makedirs(audio_directory)
-                        np.save(os.path.join(audio_directory, "audio_data.npy"), map_audio)
+                        np.save(os.path.join(audio_directory, "audio_data.npy"), map_audio) 
                         np.save(os.path.join(diff_directory, "notes_data.npy"), notes_data)
+                        with open(os.path.join(diff_directory, "timing_data.json"), "w+") as file:
+                            json.dump(timing_data, file)
+                        
     
     for diff in diffs:
         print(f"Total Valid {diff} Difficulties: {total_diffs[diff]}")

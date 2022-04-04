@@ -22,9 +22,9 @@ class MapDataset2(Dataset): # overfitting to one song
 
     def __getitem__(self, idx):
         song_path = os.path.join(self.path, self.dir[idx])
-        audio_data, notes_data = get_npy_data(song_path)
+        audio_data, timing_data, notes_data = get_npy_data(song_path)
         audio_data, notes_data = torch.Tensor(audio_data), torch.Tensor(notes_data)
-        return audio_data, notes_data
+        return audio_data, timing_data, notes_data
 
 # Modified from RNN notebook
 class taikoRNN(nn.Module):
@@ -48,7 +48,7 @@ def train_rnn_network(model, num_iters=100, learning_rate=1e-3, wd=0, checkpoint
     losses = []
 
     for iter_num in range(num_iters):
-        for audio_data, notes_data in train_loader:
+        for audio_data, timing_data, notes_data in train_loader:
             if torch.cuda.is_available():
                 audio_data = audio_data.cuda()
                 notes_data = notes_data.cuda()
@@ -56,7 +56,8 @@ def train_rnn_network(model, num_iters=100, learning_rate=1e-3, wd=0, checkpoint
             optimizer.zero_grad()
             model_out = torch.squeeze(model(audio_data), dim=0)
             notes_data = torch.squeeze(notes_data, dim=0)
-            model_loss = criterion(model_out, notes_data)
+            y,t = filter_model_output(model_out, notes_data, timing_data)
+            model_loss = criterion(y, t)
             model_loss.backward()
             optimizer.step()
             losses.append(float(model_loss))
@@ -67,10 +68,12 @@ def train_rnn_network(model, num_iters=100, learning_rate=1e-3, wd=0, checkpoint
             
     return losses
 
+#checkpoint_path="checkpoint/iter-{}.pt"
+checkpoint_path=None
 model = taikoRNN()
 if torch.cuda.is_available():
     model = model.cuda()
-model.load_state_dict(torch.load("checkpoint\\check.pt", map_location=torch.device('cpu')))
-losses = train_rnn_network(model, learning_rate = 4e-4, num_iters=10000, wd=0, checkpoint_path="checkpoint/iter-{}.pt")
+#model.load_state_dict(torch.load("checkpoint\\check.pt", map_location=torch.device('cpu')))
+losses = train_rnn_network(model, learning_rate = 4e-4, num_iters=10000, wd=0, checkpoint_path=None)
 plt.plot(losses)
 plt.show()

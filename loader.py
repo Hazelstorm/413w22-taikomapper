@@ -15,7 +15,7 @@ class MapDataset(Dataset):
     
     def __getitem__(self, idx):
         song_path = os.path.join(self.path, self.dir[idx + self.start])
-        audio_data, notes_data = get_npy_data(song_path)
+        audio_data, timing_data, notes_data = get_npy_data(song_path)
         audio_data, notes_data = torch.Tensor(audio_data), torch.Tensor(notes_data)
         mask = torch.zeros(audio_data.shape[1], audio_data.shape[1])
         
