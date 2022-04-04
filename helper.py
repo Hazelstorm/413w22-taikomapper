@@ -35,7 +35,7 @@ Parameters:
 def get_num_snaps(bar_len, offset, ms, snap_val=SNAP):
     snap_num = (ms - offset) * snap_val / bar_len # inverse function of snap_to_ms
     snap_num = np.ceil(snap_num).astype(int)
-    if snap_to_ms(bar_len, offset, snap_num) > ms: # we may have predicted a value too low due to rounding error
+    if snap_to_ms(bar_len, offset, snap_num) >= ms: # we may have predicted a value too high due to rounding error
         return snap_num
     return snap_num + 1 
     
