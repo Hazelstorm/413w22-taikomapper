@@ -12,7 +12,7 @@ npy_data_directory = os.path.join(data_directory, "npy") # directory for all pre
 #          "2015", "2016", "2017", "2018", "2019", "2020", "2021"]
 # diffs = ["kantan", "futsuu", "muzukashii", "oni"]
 
-years = ["2013"]
+years = ["2021"]
 diffs = ["kantan", "futsuu", "muzukashii", "oni"]
 
 songs = {}
@@ -99,13 +99,16 @@ def create_data(force=False):
         songs = pickle.load(in_file)
         
     for path in songs:
+        print(path)
         path_dict = songs[path]
         audio_filename = path_dict["audio"]
         # get map audio only if there is a valid difficulty, as this is time consuming
         map_audio = None
         audio_directory = os.path.join(npy_data_directory, "audio", path.replace("\\", " "))
         
+        print(diffs)
         for diff in diffs:
+            print("here")
             diff_directory = os.path.join(npy_data_directory, diff, path.replace("\\", " "))
             if (not os.path.exists(diff_directory)) or force:
                 if diff in path_dict:
@@ -139,6 +142,7 @@ def create_data(force=False):
 
 
 if __name__ == "__main__":
+    print(os.path.exists("Z:\\Users\David\\Documents\\@@@@UTM\\2022 winter\\CSC 413\\p\\413w22-taikomapper\\data\\2021\\1260473 Hanasaka Yui (CV MAO) - Shunkashuutou Egao Biyori (Cut Ver)\\audio.mp3"))
     if not os.path.exists(pickle_data_path):
         create_path_dict()
     create_data()

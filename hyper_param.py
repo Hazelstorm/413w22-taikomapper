@@ -3,7 +3,6 @@ import math
 """
 All the hyperparameters will be stored here.
 """
-
 # melspectrogram config
 n_fft = 512
 win_length = None  # default = n_fft

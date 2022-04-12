@@ -6,7 +6,7 @@ import torch
 from rnn import taikoRNN
 
 
-def build_to_file_osu(output, filename, audiofilename = "", title = ""):
+def build_to_file_osu(output, filename, audiofilename = None, title = None):
     
     reverse_onehot_array = np.argmax(output.detach().numpy(), axis=1)
     print('time units: {}'.format(len(reverse_onehot_array)))
@@ -72,10 +72,8 @@ def build_to_file_osu(output, filename, audiofilename = "", title = ""):
         for i in ind_nonzero_array:
             new_osu_file.write('{},{},{},{},{},{},{}\n'.format(ho_params[0], ho_params[1], str(i), ho_params[2], str(reverse_onehot_array[i]), ho_params[3], ho_params[4]))
 
-filepath = 'data\\2021\\203283 Mitchie M - Birthday Song for Miku\\19 Birthday Song for .mp3'
-model = taikoRNN()
-# if torch.cuda.is_available():
-#     model = model.cuda()
-model.load_state_dict(torch.load("Z:\\Users\\David\\Documents\\@@@@UTM\\2022 winter\\CSC 413\\p\\checkpoint\\iter-10000.pt"))
-x = torch.from_numpy(get_map_audio(filepath))
-build_to_file_osu(model(x), '19 Birthday Song for')
+# filepath = 'data\\2021\\203283 Mitchie M - Birthday Song for Miku\\19 Birthday Song for .mp3'
+# model = taikoRNN()
+# model.load_state_dict(torch.load("Z:\\Users\\David\\Documents\\@@@@UTM\\2022 winter\\CSC 413\\p\\checkpoint\\iter-10000.pt"))
+# x = torch.from_numpy(get_map_audio(filepath))
+# build_to_file_osu(model(x), '19 Birthday Song for')

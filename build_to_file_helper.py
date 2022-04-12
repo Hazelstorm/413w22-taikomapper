@@ -109,6 +109,8 @@ Sets current parameters for song data, overwriting default data.
 def set_values(pairs):
     global current_vals
     for key,value in pairs:
+        if value is None:
+            pass
         current_vals[key] = value
     
 """

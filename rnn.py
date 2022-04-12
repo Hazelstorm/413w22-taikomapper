@@ -4,9 +4,12 @@ from torch.utils.data import Dataset, DataLoader
 from helper import *
 import hyper_param
 import matplotlib.pyplot as plt
+from preprocessing_helpers_2 import get_map_audio
+
 
 SEED = 88
-HIDDEN_SIZE = 20
+HIDDEN_SIZE = 50
+
 WEIGHTS = torch.tensor([0.01, 1, 1, 2, 2])
 if torch.cuda.is_available():
     WEIGHTS = WEIGHTS.cuda()
@@ -152,23 +155,24 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
             
     return train_losses, val_losses, baseline_loss
         
-model = taikoRNN()
-baseline = baselineModel()
-if torch.cuda.is_available():
-    model = model.cuda()
-    baseline = baseline.cuda()
+# model = taikoRNN()
+# baseline = baselineModel()
+# if torch.cuda.is_available():
+#     model = model.cuda()
+#     baseline = baseline.cuda()
 
-for lr in [1e-4, 1e-5, 1e-6]:
-    model_copy = copy.deepcopy(model)
+# for lr in [1e-4, 1e-5, 1e-6]:
+#     model_copy = copy.deepcopy(model)
     
-    train_losses, val_losses, baseline_loss = train_rnn_network(model_copy, baseline, learning_rate=lr, num_epochs=1000, wd=0, checkpoint_path=None)
-    plt.plot(train_losses, label=f"Training Loss (lr={lr})")
-    plt.plot(val_losses, label=f"Validation Loss (lr={lr})")
+#     train_losses, val_losses, baseline_loss = train_rnn_network(model_copy, baseline, learning_rate=lr, num_epochs=1000, wd=0, checkpoint_path=None)
+#     plt.plot(train_losses, label=f"Training Loss (lr={lr})")
+#     plt.plot(val_losses, label=f"Validation Loss (lr={lr})")
     
-plt.title(f"RNN Hyperparameter Tuning")
-plt.legend()
-plt.xlabel("Iteration")
-plt.ylabel("Cross-Entropy Loss")
-plt.show()
+# plt.title(f"RNN Hyperparameter Tuning")
+# plt.legend()
+# plt.xlabel("Iteration")
+# plt.ylabel("Cross-Entropy Loss")
+# plt.show()
 
-print(f"Baseline Loss: {baseline_loss}")
+# print(f"Baseline Loss: {baseline_loss}")
+
