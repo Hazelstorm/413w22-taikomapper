@@ -106,9 +106,7 @@ def create_data(force=False):
         map_audio = None
         audio_directory = os.path.join(npy_data_directory, "audio", path.replace("\\", " "))
         
-        print(diffs)
         for diff in diffs:
-            print("here")
             diff_directory = os.path.join(npy_data_directory, diff, path.replace("\\", " "))
             if (not os.path.exists(diff_directory)) or force:
                 if diff in path_dict:
