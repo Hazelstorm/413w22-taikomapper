@@ -142,7 +142,5 @@ def create_data(force=False):
 
 
 if __name__ == "__main__":
-    print(os.path.exists("Z:\\Users\David\\Documents\\@@@@UTM\\2022 winter\\CSC 413\\p\\413w22-taikomapper\\data\\2021\\1260473 Hanasaka Yui (CV MAO) - Shunkashuutou Egao Biyori (Cut Ver)\\audio.mp3"))
-    if not os.path.exists(pickle_data_path):
-        create_path_dict()
+    create_path_dict()
     create_data()
