@@ -51,6 +51,9 @@ def get_map_data(filepath):
         if osu_file[i] == "[TimingPoints]\n":
             offset = float(osu_file[i+1].split(",")[0])
             bar_len = float(osu_file[i+1].split(",")[1])
+            if offset < 0:
+                print(f"{os.path.basename(filepath)}: Found negative offset")
+                return None, None, None
         if osu_file[i] == "[HitObjects]\n":
             hit_objects_index = i
             while (i < len(osu_file) and osu_file[i] != "\n"):
