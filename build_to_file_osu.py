@@ -4,6 +4,7 @@ from build_to_file_helper import *
 from preprocessing_helpers_2 import get_map_audio
 import torch
 from rnn import taikoRNN
+from helper import snap_to_ms
 
 
 def build_to_file_osu(output, filename, audiofilename = None, title = None):
@@ -17,7 +18,7 @@ def build_to_file_osu(output, filename, audiofilename = None, title = None):
     set_values([
         ('AudioFilename', '{}.mp3'.format(audiofilename)),
         ('Title', '{}'.format(title)),
-        ('tp_time', '{}'.format(str(ind_nonzero_array[0])))
+        ('tp_time', '{}'.format(str(snap_to_ms(ind_nonzero_array[0]))))
         # format ('VARTOCHANGE', '{}.mp3'.format(VAR))
     ])
 
@@ -70,7 +71,7 @@ def build_to_file_osu(output, filename, audiofilename = None, title = None):
         new_osu_file.write('[HitObjects]\n')
         ho_params = get_hit_objects_param()
         for i in ind_nonzero_array:
-            new_osu_file.write('{},{},{},{},{},{},{}\n'.format(ho_params[0], ho_params[1], str(i), ho_params[2], str(reverse_onehot_array[i]), ho_params[3], ho_params[4]))
+            new_osu_file.write('{},{},{},{},{},{},{}\n'.format(ho_params[0], ho_params[1], str(snap_to_ms(i)), ho_params[2], str(reverse_onehot_array[i]), ho_params[3], ho_params[4]))
 
 # filepath = 'data\\2021\\203283 Mitchie M - Birthday Song for Miku\\19 Birthday Song for .mp3'
 # model = taikoRNN()
