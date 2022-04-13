@@ -40,14 +40,13 @@ tp_beatLength = ""
 tp_meter = "4"
 tp_sampleSet = "0"
 tp_sampleIndex = "0"
-tp_volume = "100"
+tp_volume = "50"
 tp_uninherited = "1"
 tp_effects = "0"
 # HitObjects
 ho_x = "256"
 ho_y = "192"
 ho_type = "1"
-ho_objectParams = "0"
 ho_hitSample = "0:0:0:0:"
 
 # EventsValues
@@ -96,7 +95,6 @@ current_vals = {
     'ho_x': ho_x,
     'ho_y': ho_y,
     'ho_type': ho_type,
-    'ho_objectParams': ho_objectParams,
     'ho_hitSample': ho_hitSample,   
 }
 
@@ -198,7 +196,6 @@ def get_hit_objects_param():
         current_vals['ho_x'],
         current_vals['ho_y'],
         current_vals['ho_type'],
-        current_vals['ho_objectParams'],
         current_vals['ho_hitSample']
     ]
     return ret

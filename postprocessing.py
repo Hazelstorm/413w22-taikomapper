@@ -77,8 +77,8 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
         for snap_num in range(len(model_output_filtered)):
             time_in_ms = snap_to_ms(bar_len, offset, snap_num)
             hitsound_number = index_to_hitsound[model_output_filtered[snap_num]]
-            osu_file.write('{},{},{},{},{},{},{}\n'.format(
-                ho_params[0], ho_params[1], time_in_ms, ho_params[2], hitsound_number, ho_params[3], ho_params[4]))
+            osu_file.write('{},{},{},{},{},{}\n'.format(
+                ho_params[0], ho_params[1], time_in_ms, ho_params[2], hitsound_number, ho_params[3]))
 
 import torch
 from rnn import taikoRNN
