@@ -1,10 +1,9 @@
-import torch, os, random, copy
-from torch import nn, Tensor
+import torch, os, random
+from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from helper import *
 import hyper_param
 import matplotlib.pyplot as plt
-from preprocessing_helpers import get_map_audio
 
 
 SEED = 88
@@ -16,7 +15,7 @@ if torch.cuda.is_available():
 
 TRAIN_PATH = os.path.join("data", "npy", "muzukashii")
 
-class MapDataset2(Dataset): 
+class MapDataset(Dataset): 
     def __init__(self, start, stop):
         self.path = TRAIN_PATH
         self.dir = os.listdir(self.path)
@@ -69,9 +68,9 @@ class baselineModel():
 def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0, checkpoint_path=None):
     print(f"Beginning training (lr={learning_rate})")
     
-    train_dataset = MapDataset2(0, 0.6)
-    val_dataset = MapDataset2(0.6, 0.8)
-    test_dataset = MapDataset2(0.8, 1)
+    train_dataset = MapDataset(0, 0.6)
+    val_dataset = MapDataset(0.6, 0.8)
+    test_dataset = MapDataset(0.8, 1)
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
     test_loader = DataLoader(test_dataset, shuffle=True)
