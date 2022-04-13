@@ -42,24 +42,22 @@ def get_num_snaps(bar_len, offset, ms, snap_val=SNAP):
 """
 Filters out ms from the model prediction and ground-truth matrices that don't fall on snaps.
 Parameters:
-- model_out: the output of the model, a torch matrix of shape
+- notes_data: note data, a numpy matrix of shape [N,5]
 """
-def filter_model_output(model_out, notes_data, timing_data):
+def filter_model_output(notes_data, timing_data, unsnap_tolerance):
     bar_len = timing_data["bar_len"].item()
     offset = timing_data["offset"].item()
-    num_snaps = get_num_snaps(bar_len, offset, model_out.shape[0])
+    num_snaps = get_num_snaps(bar_len, offset, notes_data.shape[0])
     indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
-    y = model_out[indices]
-    t = None
-    unsnap_tolerance = 2
+    out = None
     notes_data_padded = pad(notes_data, pad=(0, 0, unsnap_tolerance, unsnap_tolerance))
     for i in range(0, 2 * unsnap_tolerance + 1):
-        t_cur = notes_data_padded[indices + i]
-        if t is None:
-            t = t_cur
+        out_cur = notes_data_padded[indices + i]
+        if out is None:
+            out = out_cur
         else:
-            t = torch.maximum(t, t_cur)
-    return y,t
+            out = torch.maximum(out, out_cur)
+    return out
 
 """
 (Approximately) converts <ms> to snap number, and rounds the resulting snap into an integer if close enough.
