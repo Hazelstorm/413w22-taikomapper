@@ -4,3 +4,5 @@ __pycache__
 *.txt
 checkpoint/
 .vscode
+*.pk
+*.osu

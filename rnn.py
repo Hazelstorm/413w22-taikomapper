@@ -9,17 +9,17 @@ import matplotlib.pyplot as plt
 SEED = 88
 HIDDEN_SIZE = 50
 
-# WEIGHTS = torch.tensor([0.01, 1, 1, 2, 2])
+WEIGHTS = torch.tensor([0.1, 1, 1, 2, 2])
 WEIGHT_MATRIX = torch.tensor([
-    [0, 100, 100, 200, 200],
-    [100, 0, 20, 10, 20],
-    [100, 20, 0, 20, 10],
-    [200, 10, 20, 0, 10],
-    [200, 20, 10, 10, 0],
+    [0, 1, 1, 2, 2],
+    [1, 0, .5, .5, .5],
+    [1, .5, 0, .5, .5],
+    [2, .5, .5, 0, .5],
+    [2, .5, .5, .5, 0],
     ])
 
 if torch.cuda.is_available():
-    # WEIGHTS = WEIGHTS.cuda()
+    WEIGHTS = WEIGHTS.cuda()
     WEIGHT_MATRIX = WEIGHT_MATRIX.cuda()
 
 def custom_loss(z, t):
@@ -90,8 +90,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
     test_loader = DataLoader(test_dataset, shuffle=True)
-    # criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
-    criterion = custom_loss
+    criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
+    # criterion = custom_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
 
     train_losses = []
@@ -108,8 +108,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
     
         model_out = torch.squeeze(baseline(audio_data), dim=0)
         notes_data = torch.squeeze(notes_data, dim=0)
-        z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item())
-        t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item())
+        z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+        t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
         model_loss = criterion(z, t)
         baseline_loss.append(model_loss.item())
     
@@ -154,7 +154,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
                     
                 model_out = torch.squeeze(model(audio_data), dim=0)
                 notes_data = torch.squeeze(notes_data, dim=0)
-                z, t = filter_model_output(model_out, notes_data, timing_data)
+                z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+                t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
                 model_loss = criterion(z, t)
                 val_loss.append(model_loss.item())
             
@@ -170,13 +171,13 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
             
     return train_losses, val_losses, baseline_loss
         
-# model = taikoRNN()
-# baseline = baselineModel()
-# if torch.cuda.is_available():
-#     model = model.cuda()
-#     baseline = baseline.cuda()
+model = taikoRNN()
+baseline = baselineModel()
+if torch.cuda.is_available():
+    model = model.cuda()
+    baseline = baseline.cuda()
 
-# train_losses, val_losses, baseline_loss = train_rnn_network(model, baseline, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+train_losses, val_losses, baseline_loss = train_rnn_network(model, baseline, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
 
 # for lr in [1e-4, 1e-5, 1e-6]:
 #     model_copy = copy.deepcopy(model)
