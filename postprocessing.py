@@ -2,79 +2,86 @@ import numpy as np
 import os
 from postprocessing_helpers import *
 from preprocessing_helpers import get_map_audio
-import torch
-from rnn import taikoRNN
-from helper import snap_to_ms
+from helper import snap_to_ms, filter_model_output
 
+index_to_hitsound = { \
+  1: 0, # don
+  2: 2, # kat
+  3: 4, # don finisher
+  4: 6, # kat finisher
+}
 
-def create_osu_file(output, filename, audiofilename = None, title = None):
-    
-    reverse_onehot_array = np.argmax(output.detach().numpy(), axis=1)
-    print('time units: {}'.format(len(reverse_onehot_array)))
-    ind_nonzero_array = np.nonzero(reverse_onehot_array)[0]
-    print('nonzero time units: {}'.format(len(ind_nonzero_array)))
+def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
+    # See https://osu.ppy.sh/wiki/en/Client/File_formats/Osu_%28file_format%29
+    bar_len = 60000/bpm
+
+    spectro = get_map_audio(audio_filepath)
+    model_output = model(torch.unsqueeze(torch.Tensor(spectro), dim=0))
+    model_output = torch.squeeze(model_output, dim=0)
+    model_output_filtered = filter_model_output(model_output, bar_len, offset, unsnap_tolerance=0) # probability vector
+    model_output_filtered = np.argmax(model_output_filtered.detach().numpy(), axis=1) # array of indices from 0-4
+    _, audio_filename = os.path.split(audio_filepath)
+    print('Total snaps: {}'.format(len(model_output_filtered)))
     
     # set values
     set_values([
-        ('AudioFilename', '{}.mp3'.format(audiofilename)),
-        ('Title', '{}'.format(title)),
-        ('tp_time', '{}'.format(str(snap_to_ms(ind_nonzero_array[0]))))
+        ('AudioFilename', '{}.mp3'.format(audio_filename)),
+        ('Title', title),
+        ('tp_time', str(offset)),
+        ('tp_beatLength', str(60000/bpm))
         # format ('VARTOCHANGE', '{}.mp3'.format(VAR))
     ])
 
-    newfilepath = 'gen_maps\\{}.osu'.format(filename)
-
-    try:
-        os.remove(newfilepath)
-    except OSError:
-        pass
-
-    with open(newfilepath, 'a') as new_osu_file:
-        new_osu_file.write('osu file format v14\n\n')
+    with open(osu_filename, 'w') as osu_file:
+        osu_file.write('osu file format v14\n\n')
 
         # General
-        new_osu_file.write('[General]\n')
+        osu_file.write('[General]\n')
         for key, value in get_general_param():
-            new_osu_file.write('{}: {}\n'.format(key, value))
-        new_osu_file.write('\n')
+            osu_file.write('{}: {}\n'.format(key, value))
+        osu_file.write('\n')
 
         # Editor
-        new_osu_file.write('[Editor]\n')
+        osu_file.write('[Editor]\n')
         for key, value in get_editor_param():
-            new_osu_file.write('{}: {}\n'.format(key, value))
-        new_osu_file.write('\n')
+            osu_file.write('{}: {}\n'.format(key, value))
+        osu_file.write('\n')
 
         # Metadata
-        new_osu_file.write('[Metadata]\n')
+        osu_file.write('[Metadata]\n')
         for key, value in get_metadata_param():
-            new_osu_file.write('{}: {}\n'.format(key, value))
-        new_osu_file.write('\n')
+            osu_file.write('{}: {}\n'.format(key, value))
+        osu_file.write('\n')
 
         # Difficulty
-        new_osu_file.write('[Difficulty]\n')
+        osu_file.write('[Difficulty]\n')
         for key, value in get_difficulty_param():
-            new_osu_file.write('{}: {}\n'.format(key, value))
-        new_osu_file.write('\n')
+            osu_file.write('{}: {}\n'.format(key, value))
+        osu_file.write('\n')
 
         # Events
-        new_osu_file.write('[Events]\n')
-        new_osu_file.write('{}\n'.format(get_event_values()[0]))
-        new_osu_file.write('\n')
+        osu_file.write('[Events]\n')
+        osu_file.write('{}\n'.format(get_event_values()[0]))
+        osu_file.write('\n')
 
         # TimingPoints
-        new_osu_file.write('[TimingPoints]\n')
+        osu_file.write('[TimingPoints]\n')
         tp_params = get_timing_point_param()
-        new_osu_file.write('{},{},{},{},{},{},{},{}\n'.format(tp_params[0], tp_params[1], tp_params[2], tp_params[3], tp_params[4], tp_params[5], tp_params[6], tp_params[7]))
-        new_osu_file.write('\n')
+        osu_file.write('{},{},{},{},{},{},{},{}\n'.format(
+            tp_params[0], tp_params[1], tp_params[2], tp_params[3], tp_params[4], tp_params[5], tp_params[6], tp_params[7]))
+        osu_file.write('\n')
 
         # HitObjects
-        new_osu_file.write('[HitObjects]\n')
+        osu_file.write('[HitObjects]\n')
         ho_params = get_hit_objects_param()
-        for i in ind_nonzero_array:
-            new_osu_file.write('{},{},{},{},{},{},{}\n'.format(ho_params[0], ho_params[1], str(snap_to_ms(i)), ho_params[2], str(reverse_onehot_array[i]), ho_params[3], ho_params[4]))
+        for snap_num in range(len(model_output_filtered)):
+            time_in_ms = snap_to_ms(bar_len, offset, snap_num)
+            hitsound_number = index_to_hitsound[model_output_filtered[snap_num]]
+            osu_file.write('{},{},{},{},{},{},{}\n'.format(
+                ho_params[0], ho_params[1], time_in_ms, ho_params[2], hitsound_number, ho_params[3], ho_params[4]))
 
-# filepath = 'data\\2021\\203283 Mitchie M - Birthday Song for Miku\\19 Birthday Song for .mp3'
-# model = taikoRNN()
-# model.load_state_dict(torch.load("Z:\\Users\\David\\Documents\\@@@@UTM\\2022 winter\\CSC 413\\p\\checkpoint\\iter-10000.pt"))
-# x = torch.from_numpy(get_map_audio(filepath))
-# create_osu_file(model(x), '19 Birthday Song for')
+import torch
+from rnn import taikoRNN
+model = taikoRNN()
+model.load_state_dict(torch.load('ckpt-1000.pk', map_location=torch.device('cpu')))
+create_osu_file(model, "audio.mp3", "test.osu", 200, 12, "Can't Hide Your Love")
