@@ -9,9 +9,25 @@ import matplotlib.pyplot as plt
 SEED = 88
 HIDDEN_SIZE = 50
 
-WEIGHTS = torch.tensor([0.01, 1, 1, 2, 2])
+# WEIGHTS = torch.tensor([0.01, 1, 1, 2, 2])
+WEIGHT_MATRIX = torch.tensor([
+    [0, 100, 100, 200, 200],
+    [100, 0, 20, 10, 20],
+    [100, 20, 0, 20, 10],
+    [200, 10, 20, 0, 10],
+    [200, 20, 10, 10, 0],
+    ])
+
 if torch.cuda.is_available():
-    WEIGHTS = WEIGHTS.cuda()
+    # WEIGHTS = WEIGHTS.cuda()
+    WEIGHT_MATRIX = WEIGHT_MATRIX.cuda()
+
+def custom_loss(z, t):
+    y = torch.softmax(z, dim=1)
+    log_y = torch.log(y)
+    loss_matrix = -1 * torch.matmul(torch.transpose(log_y, 0, 1), t)
+    weighted_loss_matrix = torch.mul(loss_matrix, WEIGHT_MATRIX)
+    return torch.sum(weighted_loss_matrix)
 
 TRAIN_PATH = os.path.join("data", "npy", "muzukashii")
 
@@ -31,6 +47,7 @@ class MapDataset(Dataset):
         audio_data, timing_data, notes_data = get_npy_data(song_path)
         audio_data, notes_data = torch.Tensor(audio_data), torch.Tensor(notes_data)
         return audio_data, timing_data, notes_data
+
 
 # Modified from RNN notebook
 class taikoRNN(nn.Module):
@@ -62,8 +79,7 @@ class baselineModel():
         if self.is_cuda:
             out = out.cuda()
         return out
-    
-    
+
 
 def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0, checkpoint_path=None):
     print(f"Beginning training (lr={learning_rate})")
@@ -74,14 +90,12 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
     test_loader = DataLoader(test_dataset, shuffle=True)
-    criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
+    # criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
+    criterion = custom_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
 
     train_losses = []
     val_losses = []
-    baseline_losses = []
-    
-    num_iters = len(train_loader)
       
     # compute baseline loss
     baseline_loss = []
@@ -94,8 +108,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
     
         model_out = torch.squeeze(baseline(audio_data), dim=0)
         notes_data = torch.squeeze(notes_data, dim=0)
-        y,t = filter_model_output(model_out, notes_data, timing_data)
-        model_loss = criterion(y, t)
+        z, t = filter_model_output(model_out, notes_data, timing_data)
+        model_loss = criterion(z, t)
         baseline_loss.append(model_loss.item())
     
     baseline_loss = sum(baseline_loss) / len(baseline_loss)
@@ -116,8 +130,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
             optimizer.zero_grad()
             model_out = torch.squeeze(model(audio_data), dim=0)
             notes_data = torch.squeeze(notes_data, dim=0)
-            y,t = filter_model_output(model_out, notes_data, timing_data)
-            model_loss = criterion(y, t)
+            z, t = filter_model_output(model_out, notes_data, timing_data)
+            model_loss = criterion(z, t)
             model_loss.backward()
             optimizer.step()
             train_loss.append(model_loss.item())
@@ -138,8 +152,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
                     
                 model_out = torch.squeeze(model(audio_data), dim=0)
                 notes_data = torch.squeeze(notes_data, dim=0)
-                y,t = filter_model_output(model_out, notes_data, timing_data)
-                model_loss = criterion(y, t)
+                z, t = filter_model_output(model_out, notes_data, timing_data)
+                model_loss = criterion(z, t)
                 val_loss.append(model_loss.item())
             
             val_loss = sum(val_loss) / len(val_loss)
@@ -150,15 +164,17 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
               f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
     
         if checkpoint_path:
-            torch.save(model.state_dict(), checkpoint_path.format(iter_num))
+            torch.save(model.state_dict(), checkpoint_path.format(epoch_num))
             
     return train_losses, val_losses, baseline_loss
         
-# model = taikoRNN()
-# baseline = baselineModel()
-# if torch.cuda.is_available():
-#     model = model.cuda()
-#     baseline = baseline.cuda()
+model = taikoRNN()
+baseline = baselineModel()
+if torch.cuda.is_available():
+    model = model.cuda()
+    baseline = baseline.cuda()
+
+train_losses, val_losses, baseline_loss = train_rnn_network(model, baseline, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
 
 # for lr in [1e-4, 1e-5, 1e-6]:
 #     model_copy = copy.deepcopy(model)
