@@ -1,26 +1,27 @@
-import torch, os, random
+import torch, os, random, copy
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from helper import *
 import hyper_param
 import matplotlib.pyplot as plt
 
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 SEED = 88
 HIDDEN_SIZE = 50
 
-# WEIGHTS = torch.tensor([0.01, 1, 1, 2, 2])
+WEIGHTS = torch.tensor([0.01, 1, 1, 2, 2])
 WEIGHT_MATRIX = torch.tensor([
-    [0, 100, 100, 200, 200],
-    [100, 0, 20, 10, 20],
-    [100, 20, 0, 20, 10],
-    [200, 10, 20, 0, 10],
-    [200, 20, 10, 10, 0],
+    [0, 1, 1, 2, 2],
+    [1, 0, .5, .5, .5],
+    [1, .5, 0, .5, .5],
+    [2, .5, .5, 0, .5],
+    [2, .5, .5, .5, 0],
     ])
 
 if torch.cuda.is_available():
-    # WEIGHTS = WEIGHTS.cuda()
-    WEIGHT_MATRIX = WEIGHT_MATRIX.cuda()
+    WEIGHTS = WEIGHTS.cuda()
+    # WEIGHT_MATRIX = WEIGHT_MATRIX.cuda()
 
 def custom_loss(z, t):
     y = torch.softmax(z, dim=1)
@@ -90,8 +91,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
     test_loader = DataLoader(test_dataset, shuffle=True)
-    # criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
-    criterion = custom_loss
+    criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
+    # criterion = custom_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
 
     train_losses = []
@@ -108,8 +109,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
     
         model_out = torch.squeeze(baseline(audio_data), dim=0)
         notes_data = torch.squeeze(notes_data, dim=0)
-        z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item())
-        t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item())
+        z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+        t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
         model_loss = criterion(z, t)
         baseline_loss.append(model_loss.item())
     
@@ -154,7 +155,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
                     
                 model_out = torch.squeeze(model(audio_data), dim=0)
                 notes_data = torch.squeeze(notes_data, dim=0)
-                z, t = filter_model_output(model_out, notes_data, timing_data)
+                z = filter_model_output(model_out, notes_data, timing_data, unsnap_tolerance = 0)
+                t = filter_model_output(model_out, notes_data, timing_data, unsnap_tolerance = 2)
                 model_loss = criterion(z, t)
                 val_loss.append(model_loss.item())
             
@@ -165,31 +167,31 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
               f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}" + 
               f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
     
-        if checkpoint_path:
-            torch.save(model.state_dict(), checkpoint_path.format(epoch_num))
+        if checkpoint_path and (epoch_num % 100) == 0:
+            torch.save(model.state_dict(), checkpoint_path.format(epoch_num,learning_rate))
             
     return train_losses, val_losses, baseline_loss
-        
-# model = taikoRNN()
-# baseline = baselineModel()
-# if torch.cuda.is_available():
-#     model = model.cuda()
-#     baseline = baseline.cuda()
 
-# train_losses, val_losses, baseline_loss = train_rnn_network(model, baseline, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
 
-# for lr in [1e-4, 1e-5, 1e-6]:
-#     model_copy = copy.deepcopy(model)
+"""        
+model = taikoRNN()
+baseline = baselineModel()
+if torch.cuda.is_available():
+    model = model.cuda()
+    baseline = baseline.cuda()
+
+for lr in [1e-4, 1e-5, 1e-6]:
+    model_copy = copy.deepcopy(model)
     
-#     train_losses, val_losses, baseline_loss = train_rnn_network(model_copy, baseline, learning_rate=lr, num_epochs=1000, wd=0, checkpoint_path=None)
-#     plt.plot(train_losses, label=f"Training Loss (lr={lr})")
-#     plt.plot(val_losses, label=f"Validation Loss (lr={lr})")
+    train_losses, val_losses, baseline_loss = train_rnn_network(model_copy, baseline, learning_rate=lr, num_epochs=1000, wd=0, checkpoint_path="C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-{}-{}.pk")
+    plt.plot(train_losses, label=f"Training Loss (lr={lr})")
+    plt.plot(val_losses, label=f"Validation Loss (lr={lr})")
     
-# plt.title(f"RNN Hyperparameter Tuning")
-# plt.legend()
-# plt.xlabel("Iteration")
-# plt.ylabel("Cross-Entropy Loss")
-# plt.show()
+plt.title(f"RNN Hyperparameter Tuning")
+plt.legend()
+plt.xlabel("Iteration")
+plt.ylabel("Cross-Entropy Loss")
+plt.show()
 
-# print(f"Baseline Loss: {baseline_loss}")
-
+print(f"Baseline Loss: {baseline_loss}")
+"""
