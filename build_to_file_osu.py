@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from build_to_file_helper import *
-from preprocessing_helpers_2 import get_map_audio
+from preprocessing_helpers import get_map_audio
 import torch
 from rnn import taikoRNN
 from helper import snap_to_ms

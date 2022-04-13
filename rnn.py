@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from helper import *
 import hyper_param
 import matplotlib.pyplot as plt
-from preprocessing_helpers_2 import get_map_audio
+from preprocessing_helpers import get_map_audio
 
 
 SEED = 88
