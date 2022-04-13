@@ -1,5 +1,6 @@
 import os, pickle
 import numpy as np
+import json
 from preprocessing_helpers import *
 
 data_directory = "data"
@@ -11,7 +12,7 @@ npy_data_directory = os.path.join(data_directory, "npy") # directory for all pre
 #          "2015", "2016", "2017", "2018", "2019", "2020", "2021"]
 # diffs = ["kantan", "futsuu", "muzukashii", "oni"]
 
-years = ["2013"]
+years = ["2021"]
 diffs = ["kantan", "futsuu", "muzukashii", "oni"]
 
 songs = {}
@@ -45,7 +46,7 @@ def create_path_dict():
             
             # Find audio and difficulties
             for file in song_dir:
-                if ".mp3" in file:
+                if file.endswith(".mp3"):
                     path_dict["audio"] = file
                 for diff in diffs:
                     if (f"[{diff}].osu" in file.lower() or
@@ -89,10 +90,10 @@ force=True allows overwrites of existing folders/data if needed.
 def create_data(force=False):
     
     total_diffs = {}
-    time_steps = {}
+    total_ms = {}
     for diff in diffs:
         total_diffs[diff] = 0
-        time_steps[diff] = 0
+        total_ms[diff] = 0
     
     with open(pickle_data_path, "rb") as in_file:
         songs = pickle.load(in_file)
@@ -102,8 +103,6 @@ def create_data(force=False):
         audio_filename = path_dict["audio"]
         # get map audio only if there is a valid difficulty, as this is time consuming
         map_audio = None
-        num_snaps = None
-        audio_data = None
         audio_directory = os.path.join(npy_data_directory, "audio", path.replace("\\", " "))
         
         for diff in diffs:
@@ -111,30 +110,34 @@ def create_data(force=False):
             if (not os.path.exists(diff_directory)) or force:
                 if diff in path_dict:
                     diff_path = os.path.join(path, path_dict[diff])
-                    notes, bar_len, offset = get_map_notes(diff_path)
+                    notes, offset, bar_len = get_map_data(diff_path)
+                    timing_data = {
+                        "offset": offset,
+                        "bar_len": bar_len
+                    }
                     if not (notes is None):
                         if (map_audio is None):
                             map_audio = get_map_audio(os.path.join(path, audio_filename))
-                            num_snaps = get_num_snaps(map_audio, bar_len, offset)
-                            audio_data = get_audio_data(map_audio, bar_len, offset)
-                        notes_data = get_note_data(notes, num_snaps)
+                        notes_data = get_note_data(notes, map_audio.shape[0])
+                        notes_data = make_onehot(notes_data)
                         print(f"{os.path.basename(path)} [{diff}]: Saving...")
                         total_diffs[diff] += 1
-                        time_steps[diff] += audio_data.shape[0]
+                        total_ms[diff] += map_audio.shape[0]
                         if not os.path.exists(diff_directory):
                             os.makedirs(diff_directory)
                         if not os.path.exists(audio_directory):
                             os.makedirs(audio_directory)
-                        np.save(os.path.join(audio_directory, "audio_data.npy"), audio_data)
+                        np.save(os.path.join(audio_directory, "audio_data.npy"), map_audio) 
                         np.save(os.path.join(diff_directory, "notes_data.npy"), notes_data)
-                        np.save(os.path.join(diff_directory, "timing.npy"), np.array([bar_len, offset]))
+                        with open(os.path.join(diff_directory, "timing_data.json"), "w+") as file:
+                            json.dump(timing_data, file)
+                        
     
     for diff in diffs:
         print(f"Total Valid {diff} Difficulties: {total_diffs[diff]}")
-        print(f"Total {diff} Time Steps: {time_steps[diff]}")
+        print(f"Total {diff} Time Steps: {total_ms[diff]}")
 
 
 if __name__ == "__main__":
-    if not os.path.exists(pickle_data_path):
-        create_path_dict()
+    create_path_dict()
     create_data()
