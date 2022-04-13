@@ -14,11 +14,13 @@ def bit_flag(x, i):
 Converts an integer <note>, representing the note type in .osu files (see below), to
 an integer representing the note type in our model.
 
-In .osu files, note types are stored in a 4-bit integer as follows:
-don: 0001 (1)
-kat: 0011 or 1001 or 1011 (3 or 9 or 11)
-don finisher: 0101 (5)
-kat finisher: 0111 or 1101 or 1111 (7 or 13 or 15)
+In .osu files, note types are stored in a 4-bit integer. If either the 1st or 3rd bit is set,
+the note is a kat; otherwise the note is a don. If the 2nd bit is set, the note is a finisher.
+The 0th bit does not matter. This gives the following representations of Taiko notes:
+don: 0000 or 0001 (0 or 1)
+kat: 0010 or 0011 or 1000 or 1001 or 1010 or 1011 (2 or 3 or 8 or 9 or 10 or 11)
+don finisher: 0100 or 0101 (4 or 5)
+kat finisher: 0110 or 0111 or 1100 or 1101 or 1110 or 1111 (6 or 7 or 12 or 13 or 14 or 15)
 
 In our model, note types are stored as an integer between 1 and 4, as follows:
 none: 0
