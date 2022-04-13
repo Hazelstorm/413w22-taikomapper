@@ -27,7 +27,7 @@ Source = ""
 Tags = ""
 BeatmapID = "0"
 BeatmapSetID = "0"
-# DifficultyValues (HPDrainRate and OverallDifficulty copied from Birthday Song for Miku)
+# DifficultyValues
 HPDrainRate = "4.5" # 8,7,6,5 for kantan, futsuu, muzu, oni diffs respectively
 CircleSize = "2"
 OverallDifficulty = "4" # 2,3,4,5 for kantan, futsuu, muzu, oni diffs respectively
@@ -109,8 +109,6 @@ Sets current parameters for song data, overwriting default data.
 def set_values(pairs):
     global current_vals
     for key,value in pairs:
-        if value is None:
-            pass
         current_vals[key] = value
     
 """
