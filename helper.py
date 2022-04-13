@@ -44,9 +44,7 @@ Filters out ms from the model prediction and ground-truth matrices that don't fa
 Parameters:
 - notes_data: note data, a numpy matrix of shape [N,5]
 """
-def filter_model_output(notes_data, timing_data, unsnap_tolerance):
-    bar_len = timing_data["bar_len"].item()
-    offset = timing_data["offset"].item()
+def filter_model_output(notes_data, bar_len, offset, unsnap_tolerance):
     num_snaps = get_num_snaps(bar_len, offset, notes_data.shape[0])
     indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
     out = None

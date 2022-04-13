@@ -108,7 +108,8 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
     
         model_out = torch.squeeze(baseline(audio_data), dim=0)
         notes_data = torch.squeeze(notes_data, dim=0)
-        z, t = filter_model_output(model_out, notes_data, timing_data)
+        z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item())
+        t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item())
         model_loss = criterion(z, t)
         baseline_loss.append(model_loss.item())
     
@@ -130,9 +131,9 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
             optimizer.zero_grad()
             model_out = torch.squeeze(model(audio_data), dim=0)
             notes_data = torch.squeeze(notes_data, dim=0)
-            y = filter_model_output(model_out, timing_data, unsnap_tolerance=0)
-            t = filter_model_output(notes_data, timing_data, unsnap_tolerance=2)
-            model_loss = criterion(y, t)
+            z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+            t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
+            model_loss = criterion(z, t)
             model_loss.backward()
             optimizer.step()
             train_loss.append(model_loss.item())
@@ -169,13 +170,13 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
             
     return train_losses, val_losses, baseline_loss
         
-model = taikoRNN()
-baseline = baselineModel()
-if torch.cuda.is_available():
-    model = model.cuda()
-    baseline = baseline.cuda()
+# model = taikoRNN()
+# baseline = baselineModel()
+# if torch.cuda.is_available():
+#     model = model.cuda()
+#     baseline = baseline.cuda()
 
-train_losses, val_losses, baseline_loss = train_rnn_network(model, baseline, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+# train_losses, val_losses, baseline_loss = train_rnn_network(model, baseline, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
 
 # for lr in [1e-4, 1e-5, 1e-6]:
 #     model_copy = copy.deepcopy(model)
