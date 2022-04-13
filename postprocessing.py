@@ -7,7 +7,7 @@ from rnn import taikoRNN
 from helper import snap_to_ms
 
 
-def build_to_file_osu(output, filename, audiofilename = None, title = None):
+def create_osu_file(output, filename, audiofilename = None, title = None):
     
     reverse_onehot_array = np.argmax(output.detach().numpy(), axis=1)
     print('time units: {}'.format(len(reverse_onehot_array)))
@@ -77,4 +77,4 @@ def build_to_file_osu(output, filename, audiofilename = None, title = None):
 # model = taikoRNN()
 # model.load_state_dict(torch.load("Z:\\Users\\David\\Documents\\@@@@UTM\\2022 winter\\CSC 413\\p\\checkpoint\\iter-10000.pt"))
 # x = torch.from_numpy(get_map_audio(filepath))
-# build_to_file_osu(model(x), '19 Birthday Song for')
+# create_osu_file(model(x), '19 Birthday Song for')
