@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from build_to_file_helper import *
+from postprocessing_helpers import *
 from preprocessing_helpers import get_map_audio
 import torch
 from rnn import taikoRNN
