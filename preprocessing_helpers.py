@@ -129,16 +129,11 @@ def get_map_audio(filepath, convert=True, kwargs=hyper_param.get_mel_param()):
     fmin = kwargs['fmin']
     fmax = kwargs['fmax']
 
-    # TODO Uh taken from github... will change when I understand how to use librosa 
+    D = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
+                            win_length=win_length)) ** pwr_spect
 
-    # D = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
-    #                         win_length=win_length)) ** pwr_spect
-
-    # S = librosa.feature.melspectrogram(S=D, n_fft=n_fft, n_mels=n_mels,
-    #                                    fmin=fmin, fmax=fmax)
-
-    S = librosa.feature.melspectrogram(y, n_fft=n_fft, n_mels=n_mels, hop_length=hop_length,
-                                        win_length=win_length, fmin=fmin, fmax=fmax)
+    S = librosa.feature.melspectrogram(S=D, n_fft=n_fft, n_mels=n_mels,
+                                       fmin=fmin, fmax=fmax)
 
     spectro = np.squeeze(S).T
     
@@ -158,3 +153,5 @@ def plot_spectrogram(spectro):
     ax.set_aspect(0.5/ax.get_data_ratio(), adjustable='box')
     plt.gca().invert_yaxis()
     plt.show()
+
+plot_spectrogram(get_map_audio("audio.mp3"))
