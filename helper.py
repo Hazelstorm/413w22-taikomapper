@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 from hyper_param import *
 
 SNAP = get_snap() # Number of snaps in one bar
-WINDOW_SIZE = get_window_size() # Input time window (in ms) around each snap
-MAX_SNAP = get_max_snap() # Maximum number of snaps in song
 
 """
 Converts <snap_num> to time in ms.

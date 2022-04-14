@@ -12,8 +12,8 @@ npy_data_directory = os.path.join(data_directory, "npy") # directory for all pre
 #          "2015", "2016", "2017", "2018", "2019", "2020", "2021"]
 # diffs = ["kantan", "futsuu", "muzukashii", "oni"]
 
-years = ["2021"]
-diffs = ["kantan", "futsuu", "muzukashii", "oni"]
+years = ["2013"]
+diffs = ["muzukashii"]
 
 songs = {}
 
@@ -115,22 +115,23 @@ def create_data(force=False):
                         "offset": offset,
                         "bar_len": bar_len
                     }
-                    if not (notes is None):
-                        if (map_audio is None):
+                    if notes is not None:
+                        if map_audio is None:
                             map_audio = get_map_audio(os.path.join(path, audio_filename))
-                        notes_data = get_note_data(notes, map_audio.shape[0])
-                        notes_data = make_onehot(notes_data)
-                        print(f"{os.path.basename(path)} [{diff}]: Saving...")
-                        total_diffs[diff] += 1
-                        total_ms[diff] += map_audio.shape[0]
-                        if not os.path.exists(diff_directory):
-                            os.makedirs(diff_directory)
-                        if not os.path.exists(audio_directory):
-                            os.makedirs(audio_directory)
-                        np.save(os.path.join(audio_directory, "audio_data.npy"), map_audio) 
-                        np.save(os.path.join(diff_directory, "notes_data.npy"), notes_data)
-                        with open(os.path.join(diff_directory, "timing_data.json"), "w+") as file:
-                            json.dump(timing_data, file)
+                        if map_audio is not None:
+                            notes_data = get_note_data(notes, map_audio.shape[0])
+                            notes_data = make_onehot(notes_data)
+                            print(f"{os.path.basename(path)} [{diff}]: Saving...")
+                            total_diffs[diff] += 1
+                            total_ms[diff] += map_audio.shape[0]
+                            if not os.path.exists(diff_directory):
+                                os.makedirs(diff_directory)
+                            if not os.path.exists(audio_directory):
+                                os.makedirs(audio_directory)
+                            np.save(os.path.join(audio_directory, "audio_data.npy"), map_audio) 
+                            np.save(os.path.join(diff_directory, "notes_data.npy"), notes_data)
+                            with open(os.path.join(diff_directory, "timing_data.json"), "w+") as file:
+                                json.dump(timing_data, file)
                         
     
     for diff in diffs:
