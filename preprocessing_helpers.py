@@ -1,7 +1,7 @@
 import librosa, math, os
 import numpy as np
 import matplotlib.pyplot as plt
-from hyper_param import *
+import hyper_param
 from pydub import AudioSegment # to convert mp3 to wav
 
 """
@@ -105,7 +105,7 @@ The mp3 is sampled in a window of size 2 * WINDOW_SIZE around each snap.
 convert=True converts mp3 files into wav before processing, as librosa doesn't
 handle mp3 efficiently.
 """
-def get_map_audio(filepath, convert=True, kwargs=get_mel_param()): 
+def get_map_audio(filepath, convert=True, kwargs=hyper_param.get_mel_param()): 
     sr = kwargs['sr']
     try: 
         if convert and filepath.endswith(".mp3"):
@@ -141,6 +141,10 @@ def get_map_audio(filepath, convert=True, kwargs=get_mel_param()):
                                         win_length=win_length, fmin=fmin, fmax=fmax)
 
     spectro = np.squeeze(S).T
+    
+    if spectro.shape[0] > hyper_param.max_ms:
+        print(f"{os.path.basename(os.path.dirname(filepath))}: Audio exceeds max length")
+        return None
 
     return spectro
         

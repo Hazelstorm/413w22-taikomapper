@@ -17,22 +17,13 @@ power_spectrogram = 2
 snap = 12
 window_size = 32
 
-# max_snap config
-max_len_bpm = 150
-max_len_ms = 120000 # 2 minutes
-
-# max_snap calculation
-max_len_bar = 60000 / max_len_bpm
-max_snap = math.floor(max_len_ms / (max_len_bar / snap))
+max_ms = 180000 # 3 minutes
 
 def get_snap():
     return snap
 
 def get_window_size():
     return window_size
-
-def get_max_snap():
-    return max_snap
 
 
 """
