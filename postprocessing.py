@@ -75,6 +75,8 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
         osu_file.write('[HitObjects]\n')
         ho_params = get_hit_objects_param()
         for snap_num in range(len(model_output_filtered)):
+            if model_output_filtered[snap_num] == 0:
+                continue
             time_in_ms = snap_to_ms(bar_len, offset, snap_num)
             hitsound_number = index_to_hitsound[model_output_filtered[snap_num]]
             osu_file.write('{},{},{},{},{},{}\n'.format(
@@ -83,5 +85,5 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
 import torch
 from rnn import taikoRNN
 model = taikoRNN()
-model.load_state_dict(torch.load('ckpt-1000.pk', map_location=torch.device('cpu')))
+model.load_state_dict(torch.load('chkpt.pk', map_location=torch.device('cpu')))
 create_osu_file(model, "audio.mp3", "test.osu", 200, 12, "Can't Hide Your Love")
