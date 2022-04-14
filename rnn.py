@@ -4,6 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 from helper import *
 import hyper_param
 import matplotlib.pyplot as plt
+import tqdm
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -81,54 +82,60 @@ class baselineModel():
             out = out.cuda()
         return out
 
+def validation_loss(model, val_loader: DataLoader, criterion):
+    val_loss = []
+    with torch.no_grad(): # disable gradient computation to save memory
+        for audio_data, timing_data, notes_data in val_loader:
+            if torch.cuda.is_available():
+                audio_data = audio_data.cuda()
+                notes_data = notes_data.cuda()
+            model_out = torch.squeeze(model(audio_data), dim=0)
+            notes_data = torch.squeeze(notes_data, dim=0)
+            z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+            t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
+            model_loss = criterion(z, t)
+            val_loss.append(model_loss.item())
+    return sum(val_loss) / len(val_loss)
 
-def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0, checkpoint_path=None):
+"""
+Trains the RNN.
+Arguments:
+- checkpoint_path: path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
+- compute_baseline: Compute and print the baseline (all zeros) loss at the beginning.
+- plot: Plot the training and validation curves.
+- criterion: Loss Criterion.
+"""
+def train_rnn_network(model, num_epochs=100, learning_rate=1e-3, wd=0, 
+    checkpoint_path=None, compute_baseline=False, plot=False, criterion=nn.CrossEntropyLoss(weight=WEIGHTS)):
     print(f"Beginning training (lr={learning_rate})")
     
     train_dataset = MapDataset(0, 0.6)
     val_dataset = MapDataset(0.6, 0.8)
-    test_dataset = MapDataset(0.8, 1)
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
-    test_loader = DataLoader(test_dataset, shuffle=True)
-    criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
-    # criterion = custom_loss
+    # criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
+    criterion = custom_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
 
     train_losses = []
     val_losses = []
       
-    # compute baseline loss
-    baseline_loss = []
-    
-    for audio_data, timing_data, notes_data in train_loader:
-        
+    if compute_baseline:
+        baseline = baselineModel()
         if torch.cuda.is_available():
-            audio_data = audio_data.cuda()
-            notes_data = notes_data.cuda()
-    
-        model_out = torch.squeeze(baseline(audio_data), dim=0)
-        notes_data = torch.squeeze(notes_data, dim=0)
-        z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
-        t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
-        model_loss = criterion(z, t)
-        baseline_loss.append(model_loss.item())
-    
-    baseline_loss = sum(baseline_loss) / len(baseline_loss)
+            baseline = baseline.cuda()
+        print(f"Baseline Validation Loss: {validation_loss(baseline, val_loader, criterion)}")
 
     # training loop
     for epoch_num in range(num_epochs):
-        
         # train loss
         train_loss = []
         model.train() 
         
-        for audio_data, timing_data, notes_data in train_loader:
-            
+        for audio_data, timing_data, notes_data in tqdm.tqdm(train_loader, desc=f"Epoch {epoch_num}"):
             if torch.cuda.is_available():
                 audio_data = audio_data.cuda()
                 notes_data = notes_data.cuda()
-
             optimizer.zero_grad()
             model_out = torch.squeeze(model(audio_data), dim=0)
             notes_data = torch.squeeze(notes_data, dim=0)
@@ -143,42 +150,32 @@ def train_rnn_network(model, baseline, num_epochs=100, learning_rate=1e-3, wd=0,
         train_losses.append(train_loss)
             
         # validation loss
-        val_loss = []
-        model.eval() 
-        
-        with torch.no_grad(): # disable gradient computation to save memory
-            for audio_data, timing_data, notes_data in val_loader:
-    
-                if torch.cuda.is_available():
-                    audio_data = audio_data.cuda()
-                    notes_data = notes_data.cuda()
-                    
-                model_out = torch.squeeze(model(audio_data), dim=0)
-                notes_data = torch.squeeze(notes_data, dim=0)
-                z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
-                t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
-                model_loss = criterion(z, t)
-                val_loss.append(model_loss.item())
-            
-            val_loss = sum(val_loss) / len(val_loss)
-            val_losses.append(val_loss)
-        
+        model.eval()
+        val_loss = validation_loss(model, val_loader, criterion)
+        val_losses.append(val_loss)
+
         print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
               f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}" + 
               f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
     
         if checkpoint_path and (epoch_num % 100) == 0:
             torch.save(model.state_dict(), checkpoint_path.format(epoch_num,learning_rate))
-            
-    return train_losses, val_losses, baseline_loss
-        
-# model = taikoRNN()
-# baseline = baselineModel()
-# if torch.cuda.is_available():
-#     model = model.cuda()
-#     baseline = baseline.cuda()
+    
+    if plot:
+        plt.plot(train_losses, label=f"Training Loss")
+        plt.plot(val_losses, label=f"Validation Loss")
+        plt.legend()
+        plt.xlabel("Iteration")
+        plt.ylabel("Loss")
+        plt.show()
 
-# train_losses, val_losses, baseline_loss = train_rnn_network(model, baseline, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+    return train_losses, val_losses
+        
+model = taikoRNN()
+if torch.cuda.is_available():
+    model = model.cuda()
+
+train_rnn_network(model, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
 
 """        
 model = taikoRNN()
