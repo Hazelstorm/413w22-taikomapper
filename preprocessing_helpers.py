@@ -153,5 +153,3 @@ def plot_spectrogram(spectro):
     ax.set_aspect(0.5/ax.get_data_ratio(), adjustable='box')
     plt.gca().invert_yaxis()
     plt.show()
-
-plot_spectrogram(get_map_audio("audio.mp3"))
