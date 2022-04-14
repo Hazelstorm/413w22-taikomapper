@@ -4,13 +4,13 @@ import math
 All the hyperparameters will be stored here.
 """
 # melspectrogram config
-n_fft = 512
+n_fft = 4096
 win_length = None  # default = n_fft
 sr = 22000 # Audio Sampling Rate
 hop_length = sr // 1000
 n_mels = 40
-fmin = 0.0
-fmax = 6000
+fmin = 20
+fmax = 5000
 power_spectrogram = 2
 
 # hyperparameter config
