@@ -72,6 +72,11 @@ def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
     if error < 0.02 * SNAP:
         return round(snap_num)
 
+
+def get_audio_around_snap(spectro, bar_len, offset, ms):
+    # TODO
+    pass
+
 """
 Returns numpy data (audio_data, notes_data, timing) stored by create_data() in datasets.py.
 """
