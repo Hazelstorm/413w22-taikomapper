@@ -1,3 +1,4 @@
+from email.mime import audio
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
 import random
 import helper
+import hyper_param
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -14,7 +16,7 @@ SEED = 88
 
 def note_presence_loss(model_output, notes_data):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
-    bce = torch.nn.BCEWithLogitsLoss()
+    bce = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([5]))
     loss = bce(model_output, nonzero_notes)
     return loss
 
@@ -26,7 +28,9 @@ def note_colour_loss(model_output, notes_data):
 
     kat_notes = torch.eq(notes_data, torch.mul(2, torch.ones_like(notes_data))) \
                     + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
-    loss = torch.nn.BCEWithLogitsLoss(model_output, kat_notes)
+    kat_notes = kat_notes.to(dtype=torch.float32)
+    bce = torch.nn.BCEWithLogitsLoss()
+    loss = bce(model_output, kat_notes)
     return loss
 
 def note_finisher_loss(model_output, notes_data):
@@ -35,18 +39,27 @@ def note_finisher_loss(model_output, notes_data):
     model_output = model_output[nonzero_entries]
     finisher_notes = torch.eq(notes_data, torch.mul(3, torch.ones_like(notes_data))) \
                     + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
-    loss = torch.nn.BCEWithLogitsLoss(model_output, finisher_notes)
+    bce = torch.nn.BCEWithLogitsLoss()
+    loss = bce(model_output, finisher_notes)
     return loss
 
-def model_compute_note_presence(model: notePresenceRNN, audio_data, timing_data):
+def model_compute_note_presence(model: notePresenceRNN, audio_data, timing_data, notes_data):
     bar_len = timing_data["bar_len"].item()
     offset = timing_data["offset"].item()
     return model(audio_data, bar_len, offset)
 
-def model_compute_note_colour(model: noteColourRNN, audio_data, timing_data):
+def model_compute_note_colour(model: noteColourRNN, audio_data, timing_data, notes_data):
     bar_len = timing_data["bar_len"].item()
     offset = timing_data["offset"].item()
-    return model(audio_data, bar_len, offset)
+    audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, hyper_param.window_size)
+    return model(audio_windows, bar_len, offset, notes_data)
+
+def model_compute_note_finisher(model: noteFinisherRNN, audio_data, timing_data, notes_data):
+    bar_len = timing_data["bar_len"].item()
+    offset = timing_data["offset"].item()
+    win_length = 2 * hyper_param.window_size + 1
+    audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, win_length)
+    return model(audio_windows, bar_len, offset, notes_data)
 
 TRAIN_PATH = os.path.join("data", "npy", "futsuu")
 
@@ -115,7 +128,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
                 audio_data = audio_data.cuda()
                 notes_data = notes_data.cuda()
             optimizer.zero_grad()
-            model_out = model_compute(model, audio_data, timing_data)
+            model_out = model_compute(model, audio_data, timing_data, notes_data)
             notes_data = torch.squeeze(notes_data, dim=0)
             model_loss = criterion(model_out, notes_data)
             model_loss.backward()
@@ -133,7 +146,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
                 if torch.cuda.is_available():
                     audio_data = audio_data.cuda()
                     notes_data = notes_data.cuda()
-                model_out = model_compute(model, audio_data, timing_data)
+                model_out = model_compute(model, audio_data, timing_data, notes_data)
                 model_out = torch.squeeze(model_out, dim=0)
                 notes_data = torch.squeeze(notes_data, dim=0)
                 model_loss = criterion(model_out, notes_data)
@@ -159,7 +172,11 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
     return train_losses, val_losses
 
 if __name__ == "__main__":
-    model = notePresenceRNN()
+    # model = notePresenceRNN()
+    # if torch.cuda.is_available():
+    #     model = model.cuda()
+    # train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+    model = noteColourRNN()
     if torch.cuda.is_available():
         model = model.cuda()
-    train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+    train_rnn_network(model, model_compute_note_colour, note_colour_loss, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)

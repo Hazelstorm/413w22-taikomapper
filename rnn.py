@@ -25,17 +25,21 @@ class noteColourRNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.hidden_size = 50
-        self.rnn = nn.GRU(input_size=hyper_param.n_mels *  WINDOW_LENGTH, hidden_size=self.hidden_size)
+        self.rnn = nn.GRU(input_size=(hyper_param.n_mels*WINDOW_LENGTH + 1), hidden_size=self.hidden_size)
         self.fc = nn.Linear(self.hidden_size, 1)
     
-    def forward(self, spectro, notes_data):
-        spectro = torch.flatten(spectro, start_dim=2)
-        augmented_spectro = torch.cat(spectro, notes_data, 2)
+    def forward(self, spectro, bar_len, offset, notes_data):
+        spectro = torch.flatten(spectro, start_dim=1)
+        notes_data = torch.transpose(notes_data, 0, 1)
+        augmented_spectro = torch.cat((spectro, notes_data), 1)
+        augmented_spectro = torch.unsqueeze(augmented_spectro, dim=0)
         out, _ = self.rnn(augmented_spectro)
         out = self.fc(out)
+        out = torch.squeeze(out, dim=2)
+        out = torch.squeeze(out, dim=0)
         # Allow the model to only colour notes that are present in notes_data
-        notes_present = torch.ge(notes_data, torch.zeros_like(notes_data))
-        out = torch.mul(out, notes_present)
+        notes_present = notes_data > 0
+        out = torch.mul(out, torch.squeeze(notes_present, dim=1))
         return out
 
 class noteFinisherRNN(noteColourRNN):

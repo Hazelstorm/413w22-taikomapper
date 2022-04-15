@@ -95,15 +95,15 @@ Parameters:
 def get_audio_around_snaps(spectro, bar_len, offset, win_size):
     win_length = win_size * 2 + 1
     
-    padded_spectro = np.pad(spectro, pad_width=[(win_size, win_size), (0, 0)], constant_values=np.min(spectro)) # pad the spectro on each side with minimum values
+    padded_spectro = pad(spectro, pad=(0, 0, win_size, win_size), value=torch.min(spectro)) # pad the spectro on each side with minimum values
     num_snaps = get_num_snaps(bar_len, offset, spectro.shape[0])
     indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
     
-    audio_windows = np.zeros([num_snaps, 0, n_mels]) # [indices, win_length, 40]
+    audio_windows = torch.zeros([num_snaps, 0, n_mels]) # [indices, win_length, 40]
     for i in range(win_length):
         audio_slices = padded_spectro[indices + i, :]
-        audio_slices = np.expand_dims(audio_slices, axis=1)
-        audio_windows = np.concatenate([audio_windows, audio_slices], axis=1)
+        audio_slices = torch.unsqueeze(audio_slices, 1)
+        audio_windows = torch.cat([audio_windows, audio_slices], axis=1)
         
     return audio_windows
 
