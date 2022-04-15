@@ -7,15 +7,18 @@ WINDOW_LENGTH = 2 * hyper_param.window_size + 1
 
 # Modified from RNN notebook
 class notePresenceRNN(nn.Module):
-    def __init__(self, hidden_size=200):
+    def __init__(self, emb_size=256, hidden_size=256):
         super().__init__()
         self.hidden_size = hidden_size
-        self.rnn = nn.GRU(input_size=hyper_param.n_mels*WINDOW_LENGTH, hidden_size=self.hidden_size)
+        self.emb_size = emb_size
+        self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH, self.emb_size)
+        self.rnn = nn.GRU(input_size=emb_size, hidden_size=self.hidden_size)
         self.fc = nn.Linear(self.hidden_size, 1)
     
     def forward(self, audio_windows):
         audio_windows = torch.unsqueeze(audio_windows, dim=0)
-        out, _ = self.rnn(audio_windows)
+        out = self.embedding(audio_windows)
+        out, _ = self.rnn(out)
         out = self.fc(out)
         out = torch.squeeze(out, dim=2)
         out = torch.squeeze(out, dim=0)
