@@ -16,7 +16,10 @@ SEED = 88
 
 def note_presence_loss(model_output, notes_data):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
-    bce = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([8]))
+    weight = torch.tensor([8])
+    if torch.cuda.is_available():
+        weight = weight.cuda()
+    bce = torch.nn.BCEWithLogitsLoss(pos_weight=weight)
     loss = bce(model_output, nonzero_notes)
 
     return loss
@@ -110,6 +113,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
 
     train_losses = []
     val_losses = []
+    val_iters = []
 
     # training loop
     for epoch_num in range(num_epochs):
@@ -136,49 +140,52 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
         train_losses.append(train_loss)
             
         # validation loss
-        if (epoch_num % 100 != 0):
-            continue
-        model.eval()
-        val_loss = []
-        with torch.no_grad(): # disable gradient computation to save memory
-            for audio_data, timing_data, notes_data in val_loader:
-                if torch.cuda.is_available():
-                    audio_data = audio_data.cuda()
-                    notes_data = notes_data.cuda()
-                bar_len = timing_data["bar_len"].item()
-                offset = timing_data["offset"].item()
-                audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, hyper_param.window_size)
-                audio_windows = torch.flatten(audio_windows, start_dim=1)
-                model_out = model_compute(model, audio_windows, notes_data)
-                model_out = torch.squeeze(model_out, dim=0)
-                notes_data = torch.squeeze(notes_data, dim=0)
-                model_loss = criterion(model_out, notes_data)
-                val_loss.append(model_loss.item())
-        val_loss = sum(val_loss) / len(val_loss)
-        val_losses.append(val_loss)
+        if (epoch_num % 100 == 0):
+            model.eval()
+            val_loss = []
+            with torch.no_grad(): # disable gradient computation to save memory
+                for audio_data, timing_data, notes_data in val_loader:
+                    if torch.cuda.is_available():
+                        audio_data = audio_data.cuda()
+                        notes_data = notes_data.cuda()
+                    bar_len = timing_data["bar_len"].item()
+                    offset = timing_data["offset"].item()
+                    audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, hyper_param.window_size)
+                    audio_windows = torch.flatten(audio_windows, start_dim=1)
+                    model_out = model_compute(model, audio_windows, notes_data)
+                    model_out = torch.squeeze(model_out, dim=0)
+                    notes_data = torch.squeeze(notes_data, dim=0)
+                    model_loss = criterion(model_out, notes_data)
+                    val_loss.append(model_loss.item())
+            val_loss = sum(val_loss) / len(val_loss)
+            val_losses.append(val_loss)
+            val_iters.append(epoch_num)
 
-        print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
-              f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}" + 
-              f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
+            print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
+                  f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}" + 
+                  f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
+        else:
+            print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
+                  f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}")
     
         if checkpoint_path and (epoch_num % 100) == 0:
             torch.save(model.state_dict(), checkpoint_path.format(epoch_num,learning_rate))
     
     if plot:
         plt.plot(train_losses, label=f"Training Loss")
-        plt.plot(val_losses, label=f"Validation Loss")
+        plt.plot(val_iters, val_losses, label=f"Validation Loss")
         plt.legend()
         plt.xlabel("Iteration")
         plt.ylabel("Loss")
         plt.show()
 
-    return train_losses, val_losses
+    return train_losses, val_losses, val_iters
 
 if __name__ == "__main__":
     model = notePresenceRNN()
     if torch.cuda.is_available():
         model = model.cuda()
-    train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-3, num_epochs=1000, wd=0, checkpoint_path=None)
+    train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-3, num_epochs=5, wd=0, checkpoint_path=None, plot=True)
     # model = noteColourRNN()
     # if torch.cuda.is_available():
     #     model = model.cuda()

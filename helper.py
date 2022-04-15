@@ -100,6 +100,9 @@ def get_audio_around_snaps(spectro, bar_len, offset, win_size):
     indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
     
     audio_windows = torch.zeros([num_snaps, 0, n_mels]) # [indices, win_length, 40]
+    if torch.cuda.is_available():
+        audio_windows = audio_windows.cuda()
+    
     for i in range(win_length):
         audio_slices = padded_spectro[indices + i, :]
         audio_slices = torch.unsqueeze(audio_slices, 1)
