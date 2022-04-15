@@ -14,7 +14,7 @@ fmax = 5000
 power_spectrogram = 2
 
 # hyperparameter config
-snap = 12
+snap = 4
 window_size = 32
 
 max_ms = 180000 # 3 minutes

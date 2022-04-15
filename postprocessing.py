@@ -2,7 +2,7 @@ import numpy as np
 import os
 from postprocessing_helpers import *
 from preprocessing_helpers import get_map_audio
-from helper import snap_to_ms, filter_model_output
+from helper import snap_to_ms, filter_to_snaps
 
 index_to_hitsound = { \
   1: 0, # don
@@ -18,7 +18,7 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
     spectro = get_map_audio(audio_filepath)
     model_output = model(torch.unsqueeze(torch.Tensor(spectro), dim=0))
     model_output = torch.squeeze(model_output, dim=0)
-    model_output_filtered = filter_model_output(model_output, bar_len, offset, unsnap_tolerance=0) # probability vector
+    model_output_filtered = filter_to_snaps(model_output, bar_len, offset, unsnap_tolerance=0) # probability vector
     model_output_filtered = np.argmax(model_output_filtered.detach().numpy(), axis=1) # array of indices from 0-4
     _, audio_filename = os.path.split(audio_filepath)
     print('Total snaps: {}'.format(len(model_output_filtered)))
@@ -85,5 +85,5 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
 import torch
 from rnn import taikoRNN
 model = taikoRNN()
-model.load_state_dict(torch.load('chkpt.pk', map_location=torch.device('cpu')))
-create_osu_file(model, "audio.mp3", "test.osu", 200, 12, "Can't Hide Your Love")
+model.load_state_dict(torch.load('ckpt-29900-0.001.pk', map_location=torch.device('cpu')))
+create_osu_file(model, "Scott Pilgrim Anthem.mp3", "test.osu", 225, 342, "Scott Pilgrim Anthem")

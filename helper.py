@@ -39,20 +39,30 @@ def get_num_snaps(bar_len, offset, ms, snap_val=SNAP):
     
 """
 Filters out ms from the model prediction and ground-truth matrices that don't fall on snaps.
+bar_len and offset are used to calculate the times at which snaps occur.
 Parameters:
 - notes_data: note data, a numpy matrix of shape [N,5]
+- unsnap_tolerance: number of ms of leniency. A note is considered to fall on a snap at s ms if it occurs in
+  the time interval [s - unsnap_tolerance, s + unsnap_tolerance].
+- numpy: Whether notes_data is a numpy array. If numpy=True, returns a Numpy array instead of a Torch tensor.
 """
-def filter_model_output(notes_data, bar_len, offset, unsnap_tolerance):
+def filter_to_snaps(notes_data, bar_len, offset, unsnap_tolerance, numpy=False):
     num_snaps = get_num_snaps(bar_len, offset, notes_data.shape[0])
     indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
     out = None
-    notes_data_padded = pad(notes_data, pad=(0, 0, unsnap_tolerance, unsnap_tolerance))
+    if numpy:
+        notes_data_padded = np.pad(notes_data, (unsnap_tolerance, unsnap_tolerance), constant_values=(0, 0))
+    else:
+        notes_data_padded = pad(notes_data, pad=(unsnap_tolerance, unsnap_tolerance))
     for i in range(0, 2 * unsnap_tolerance + 1):
         out_cur = notes_data_padded[indices + i]
         if out is None:
             out = out_cur
         else:
-            out = torch.maximum(out, out_cur)
+            if numpy:
+                out = np.maximum(out, out_cur)
+            else:
+                out = torch.maximum(out, out_cur)
     return out
 
 """

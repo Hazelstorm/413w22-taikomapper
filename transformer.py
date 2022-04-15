@@ -127,8 +127,8 @@ def train_transformer_network(model, baseline, num_epochs=100, learning_rate=1e-
     
         model_out = torch.squeeze(baseline(audio_data), dim=0)
         notes_data = torch.squeeze(notes_data, dim=0)
-        z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
-        t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
+        z = filter_to_snaps(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+        t = filter_to_snaps(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
         model_loss = criterion(z, t)
         baseline_loss.append(model_loss.item())
     
@@ -151,8 +151,8 @@ def train_transformer_network(model, baseline, num_epochs=100, learning_rate=1e-
             optimizer.zero_grad()
             model_out = torch.squeeze(model(audio_data, src_mask), dim=0)
             notes_data = torch.squeeze(notes_data, dim=0)
-            z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
-            t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
+            z = filter_to_snaps(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+            t = filter_to_snaps(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
             model_loss = criterion(z, t)
             model_loss.backward()
             optimizer.step()
@@ -175,8 +175,8 @@ def train_transformer_network(model, baseline, num_epochs=100, learning_rate=1e-
                     
                 model_out = torch.squeeze(model(audio_data, src_mask), dim=0)
                 notes_data = torch.squeeze(notes_data, dim=0)
-                z = filter_model_output(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
-                t = filter_model_output(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
+                z = filter_to_snaps(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
+                t = filter_to_snaps(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
                 model_loss = criterion(z, t)
                 val_loss.append(model_loss.item())
             

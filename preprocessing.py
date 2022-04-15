@@ -2,6 +2,7 @@ import os, pickle
 import numpy as np
 import json
 from preprocessing_helpers import *
+from helper import filter_to_snaps
 
 data_directory = "data"
 pickle_data_path = os.path.join(data_directory, "data.pkl") # file for all song names and difficulties
@@ -13,7 +14,7 @@ npy_data_directory = os.path.join(data_directory, "npy") # directory for all pre
 # diffs = ["kantan", "futsuu", "muzukashii", "oni"]
 
 years = ["2013"]
-diffs = ["muzukashii"]
+diffs = ["futsuu"]
 
 songs = {}
 
@@ -120,7 +121,7 @@ def create_data(force=False):
                             map_audio = get_map_audio(os.path.join(path, audio_filename))
                         if map_audio is not None:
                             notes_data = get_note_data(notes, map_audio.shape[0])
-                            notes_data = make_onehot(notes_data)
+                            notes_data = filter_to_snaps(notes_data, bar_len, offset, 2, numpy=True)
                             print(f"{os.path.basename(path)} [{diff}]: Saving...")
                             total_diffs[diff] += 1
                             total_ms[diff] += map_audio.shape[0]
