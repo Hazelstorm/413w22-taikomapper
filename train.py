@@ -136,6 +136,8 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
         train_losses.append(train_loss)
             
         # validation loss
+        if (epoch_num % 100 != 0):
+            continue
         model.eval()
         val_loss = []
         with torch.no_grad(): # disable gradient computation to save memory
