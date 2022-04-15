@@ -83,9 +83,19 @@ def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
         return round(snap_num)
 
 
-def get_audio_around_snap(spectro, bar_len, offset, ms):
-    # TODO
-    pass
+"""
+Pulls from the spectrogram a window of audio centered at <ms> with a window of <win_size> ms added on either side.
+If the window extends past the start/end of the spectrogram, padding values will be inserted equal to the minimum value
+of the spectrogram.
+
+Parameters:
+- spectro: the spectrogram to pull audio from, a numpy matrix of shape [N, 40]
+- ms: the ms that the window should be centered around
+"""
+def get_audio_around_snap(spectro, ms, win_size):
+    padded_spectro = np.pad(spectro, pad_width=[(win_size, win_size), (0, 0)], constant_values=np.min(spectro)) # pad the spectro on each side with minimum values
+    sample = padded_spectro[ms:ms + (2 * win_size) + 1, :]
+    return sample
 
 """
 Returns numpy data (audio_data, notes_data, timing) stored by create_data() in datasets.py.
