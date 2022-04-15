@@ -18,6 +18,10 @@ def note_presence_loss(model_output, notes_data):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
     bce = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([5]))
     loss = bce(model_output, nonzero_notes)
+
+    # penalize notes on 1/4 and 1/2 a bit more than 1/1
+    
+
     return loss
 
 def note_colour_loss(model_output, notes_data):

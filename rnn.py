@@ -10,7 +10,7 @@ class notePresenceRNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.hidden_size = 50
-        self.rnn = nn.GRU(input_size=hyper_param.n_mels, hidden_size=self.hidden_size)
+        self.rnn = nn.GRU(input_size=(hyper_param.n_mels*WINDOW_LENGTH + 1), hidden_size=self.hidden_size)
         self.fc = nn.Linear(self.hidden_size, 1)
     
     def forward(self, spectro, bar_len, offset):
