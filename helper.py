@@ -82,20 +82,30 @@ def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
     if error < 0.02 * SNAP:
         return round(snap_num)
 
-
 """
-Pulls from the spectrogram a window of audio centered at <ms> with a window of <win_size> ms added on either side.
-If the window extends past the start/end of the spectrogram, padding values will be inserted equal to the minimum value
-of the spectrogram.
+Pulls from the spectrogram severals window of audio centered at each snapped ms of the audio with a window of <win_size> ms added on either side.
+If the window extends past the start/end of the spectrogram, padding values will be inserted equal to the minimum value of the spectrogram.
 
 Parameters:
 - spectro: the spectrogram to pull audio from, a numpy matrix of shape [N, 40]
-- ms: the ms that the window should be centered around
+- bar_len: bar_len of the audio
+- offset: offset of the audio
+- win_size: how large the window should be on each side of the snapped ms
 """
-def get_audio_around_snap(spectro, ms, win_size):
+def get_audio_around_snaps(spectro, bar_len, offset, win_size):
+    win_length = win_size * 2 + 1
+    
     padded_spectro = np.pad(spectro, pad_width=[(win_size, win_size), (0, 0)], constant_values=np.min(spectro)) # pad the spectro on each side with minimum values
-    sample = padded_spectro[ms:ms + (2 * win_size) + 1, :]
-    return sample
+    num_snaps = get_num_snaps(bar_len, offset, spectro.shape[0])
+    indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
+    
+    audio_windows = np.zeros([num_snaps, 0, n_mels]) # [indices, win_length, 40]
+    for i in range(win_length):
+        audio_slices = padded_spectro[indices + i, :]
+        audio_slices = np.expand_dims(audio_slices, axis=1)
+        audio_windows = np.concatenate([audio_windows, audio_slices], axis=1)
+        
+    return audio_windows
 
 """
 Returns numpy data (audio_data, notes_data, timing) stored by create_data() in datasets.py.

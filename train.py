@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, DataLoader
 import os
 import tqdm
 import matplotlib.pyplot as plt
-import hyper_param
+from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
 import random
 import helper
 
@@ -12,25 +12,41 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 SEED = 88
 
-WEIGHTS = torch.tensor([0.1, 1, 1, 2, 2])
-WEIGHT_MATRIX = torch.tensor([
-    [0, 1, 1, 2, 2],
-    [1, 0, .5, .5, .5],
-    [1, .5, 0, .5, .5],
-    [2, .5, .5, 0, .5],
-    [2, .5, .5, .5, 0],
-    ])
+def note_presence_loss(model_output, notes_data):
+    nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
+    bce = torch.nn.BCEWithLogitsLoss()
+    loss = bce(model_output, nonzero_notes)
+    return loss
 
-if torch.cuda.is_available():
-    WEIGHTS = WEIGHTS.cuda()
-    WEIGHT_MATRIX = WEIGHT_MATRIX.cuda()
+def note_colour_loss(model_output, notes_data):
+    # filter out all zero entries in notes_data, and also filter the same entries in model_output
+    nonzero_entries = notes_data > 0
+    notes_data = notes_data[nonzero_entries]
+    model_output = model_output[nonzero_entries]
 
-def custom_loss(z, t):
-    y = torch.softmax(z, dim=1)
-    log_y = torch.log(y)
-    loss_matrix = -1 * torch.matmul(torch.transpose(log_y, 0, 1), t)
-    weighted_loss_matrix = torch.mul(loss_matrix, WEIGHT_MATRIX)
-    return torch.sum(weighted_loss_matrix)
+    kat_notes = torch.eq(notes_data, torch.mul(2, torch.ones_like(notes_data))) \
+                    + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
+    loss = torch.nn.BCEWithLogitsLoss(model_output, kat_notes)
+    return loss
+
+def note_finisher_loss(model_output, notes_data):
+    nonzero_entries = notes_data > 0
+    notes_data = notes_data[nonzero_entries]
+    model_output = model_output[nonzero_entries]
+    finisher_notes = torch.eq(notes_data, torch.mul(3, torch.ones_like(notes_data))) \
+                    + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
+    loss = torch.nn.BCEWithLogitsLoss(model_output, finisher_notes)
+    return loss
+
+def model_compute_note_presence(model: notePresenceRNN, audio_data, timing_data):
+    bar_len = timing_data["bar_len"].item()
+    offset = timing_data["offset"].item()
+    return model(audio_data, bar_len, offset)
+
+def model_compute_note_colour(model: noteColourRNN, audio_data, timing_data):
+    bar_len = timing_data["bar_len"].item()
+    offset = timing_data["offset"].item()
+    return model(audio_data, bar_len, offset)
 
 TRAIN_PATH = os.path.join("data", "npy", "futsuu")
 
@@ -48,6 +64,7 @@ class MapDataset(Dataset):
     def __getitem__(self, idx):
         song_path = os.path.join(self.path, self.dir[idx])
         audio_data, timing_data, notes_data = helper.get_npy_data(song_path)
+        notes_data = notes_data.astype('int32')
         audio_data, notes_data = torch.Tensor(audio_data), torch.Tensor(notes_data)
         return audio_data, timing_data, notes_data
 
@@ -69,53 +86,27 @@ class baselineModel():
             out = out.cuda()
         return out
 
-def validation_loss(model, val_loader: DataLoader, criterion):
-    val_loss = []
-    with torch.no_grad(): # disable gradient computation to save memory
-        for audio_data, timing_data, notes_data in val_loader:
-            if torch.cuda.is_available():
-                audio_data = audio_data.cuda()
-                notes_data = notes_data.cuda()
-            model_out = torch.squeeze(model(audio_data), dim=0)
-            notes_data = torch.squeeze(notes_data, dim=0)
-            z = helper.filter_to_snaps(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
-            t = helper.filter_to_snaps(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
-            model_loss = criterion(z, t)
-            val_loss.append(model_loss.item())
-    return sum(val_loss) / len(val_loss)
-
 """
 Trains the RNN.
 Arguments:
 - checkpoint_path: path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
-- compute_baseline: Compute and print the baseline (all zeros) loss at the beginning.
 - plot: Plot the training and validation curves.
-- criterion: Loss Criterion.
 """
-def train_rnn_network(model, num_epochs=100, learning_rate=1e-3, wd=0, 
-    checkpoint_path=None, compute_baseline=False, plot=False, criterion=nn.CrossEntropyLoss(weight=WEIGHTS)):
+def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
+    checkpoint_path=None, plot=False):
     print(f"Beginning training (lr={learning_rate})")
     
     train_dataset = MapDataset(0, 0.6)
     val_dataset = MapDataset(0.6, 0.8)
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
-    # criterion = nn.CrossEntropyLoss(weight=WEIGHTS)
-    criterion = custom_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
 
     train_losses = []
     val_losses = []
-      
-    if compute_baseline:
-        baseline = baselineModel()
-        if torch.cuda.is_available():
-            baseline = baseline.cuda()
-        print(f"Baseline Validation Loss: {validation_loss(baseline, val_loader, criterion)}")
 
     # training loop
     for epoch_num in range(num_epochs):
-        # train loss
         train_loss = []
         model.train() 
         
@@ -124,11 +115,9 @@ def train_rnn_network(model, num_epochs=100, learning_rate=1e-3, wd=0,
                 audio_data = audio_data.cuda()
                 notes_data = notes_data.cuda()
             optimizer.zero_grad()
-            model_out = torch.squeeze(model(audio_data), dim=0)
+            model_out = model_compute(model, audio_data, timing_data)
             notes_data = torch.squeeze(notes_data, dim=0)
-            z = helper.filter_to_snaps(model_out, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=0)
-            t = helper.filter_to_snaps(notes_data, timing_data["bar_len"].item(), timing_data["offset"].item(), unsnap_tolerance=2)
-            model_loss = criterion(z, t)
+            model_loss = criterion(model_out, notes_data)
             model_loss.backward()
             optimizer.step()
             train_loss.append(model_loss.item())
@@ -138,7 +127,18 @@ def train_rnn_network(model, num_epochs=100, learning_rate=1e-3, wd=0,
             
         # validation loss
         model.eval()
-        val_loss = validation_loss(model, val_loader, criterion)
+        val_loss = []
+        with torch.no_grad(): # disable gradient computation to save memory
+            for audio_data, timing_data, notes_data in val_loader:
+                if torch.cuda.is_available():
+                    audio_data = audio_data.cuda()
+                    notes_data = notes_data.cuda()
+                model_out = model_compute(model, audio_data, timing_data)
+                model_out = torch.squeeze(model_out, dim=0)
+                notes_data = torch.squeeze(notes_data, dim=0)
+                model_loss = criterion(model_out, notes_data)
+                val_loss.append(model_loss.item())
+        val_loss = sum(val_loss) / len(val_loss)
         val_losses.append(val_loss)
 
         print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
@@ -158,10 +158,8 @@ def train_rnn_network(model, num_epochs=100, learning_rate=1e-3, wd=0,
 
     return train_losses, val_losses
 
-
 if __name__ == "__main__":
-    from rnn import taikoRNN
-    model = taikoRNN()
+    model = notePresenceRNN()
     if torch.cuda.is_available():
         model = model.cuda()
-    train_rnn_network(model, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+    train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
