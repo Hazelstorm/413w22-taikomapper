@@ -39,6 +39,7 @@ def note_finisher_loss(model_output, notes_data):
     model_output = model_output[nonzero_entries]
     finisher_notes = torch.eq(notes_data, torch.mul(3, torch.ones_like(notes_data))) \
                     + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
+    finisher_notes = finisher_notes.to(dtype=torch.float32)
     bce = torch.nn.BCEWithLogitsLoss()
     loss = bce(model_output, finisher_notes)
     return loss
@@ -57,8 +58,7 @@ def model_compute_note_colour(model: noteColourRNN, audio_data, timing_data, not
 def model_compute_note_finisher(model: noteFinisherRNN, audio_data, timing_data, notes_data):
     bar_len = timing_data["bar_len"].item()
     offset = timing_data["offset"].item()
-    win_length = 2 * hyper_param.window_size + 1
-    audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, win_length)
+    audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, hyper_param.window_size)
     return model(audio_windows, bar_len, offset, notes_data)
 
 TRAIN_PATH = os.path.join("data", "npy", "futsuu")
