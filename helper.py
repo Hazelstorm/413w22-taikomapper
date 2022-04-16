@@ -130,9 +130,7 @@ def get_note_ratio(notes_data): # useful for computing expected weight of loss f
     return notes, no_notes
 
 """
-Returns the total number of snaps and the total number of notes in the map
-
-notes_data: numpy array of shape [1, N]
+Returns the total number of finisher notes and the total number of non-finisher notes.
 """
 def get_finisher_ratio(notes_data):
     finishers = torch.sum(notes_data >= 3).item()
