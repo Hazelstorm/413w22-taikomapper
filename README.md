@@ -5,7 +5,7 @@
 ## osu!Taiko
 [*osu!*](https://osu.ppy.sh/) is a free-to-play rhythm game in which players attempt to click on circles to the beat of the music. In *osu!Taiko*, a game mode in *osu!* inspired by *Taiko no Tatsujin*, players are presented with a sequence of incoming red and blue circles (called "don"s and "kat"s respectively) approaching a drum. When a don or kat arrives at the center of the drum, the player must use the keyboard to tap the drum in the center (default keys X or C) or on the edge (Z or V) according to the colour of the note. Both don's and kat's also have a respective "finisher" variant (indicated by a larger circle of the respective colour), requiring the player to tap both center or both edge keys. 
 
-A sample gameplay video (by contributor [Hazelstorm](https://github.com/Hazelstorm)) can be found [here](https://www.youtube.com/watch?v=7wP_YnOfpj8).
+A sample gameplay video (played by Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm))) can be found [here](https://www.youtube.com/watch?v=7wP_YnOfpj8).
 
 *Taiko* levels are stored in "beatmaps" (also known as "difficulties" or simply "maps"), and are community-created. Maps for the same song are grouped into "mapsets", which may be uploaded to the *osu!* website. Each *Taiko* mapset contains an audio file (typically MP3) and one ".osu" file for each difficulty. The .osu file format is in human-readable, and contains the following information:
 - Filename of the audio file.
@@ -15,7 +15,7 @@ A sample gameplay video (by contributor [Hazelstorm](https://github.com/Hazelsto
 - Timing information, including the BPM (tempo) and offset (time of first beat in milliseconds, relative to start of audio file) of the song. There could be multiple BPMs and offsets for a song with varying tempo. 
 - The notes in the map. For *Taiko*, each note has an offset (relative to the start of the audio file) and a "type" (used to determine whether the note is a don/kat and whether the note is a finisher). 
 
-Typically, a Taiko mapset has one or more of the following difficulty names, in order of increasing gameplay difficulty: "Kantan" (Easy), "Futsuu" (Normal), "Muzukashii" (Hard), "Oni" (Demon). However, mapset creators can give custom names to difficulties, especially for difficulties that are harder than Oni.
+Typically, a Taiko mapset has one or more of the following difficulty names, in order of increasing gameplay difficulty: "Kantan" (Easy), "Futsuu" (Normal), "Muzukashii" (Hard), "Oni" (Demon). However, mapset creators can give custom names to difficulties, especially for difficulties that are harder than Oni. We ignore such difficulties in our model.
 
 For more detailed information on the .osu file format, refer to the [*osu!Wiki*](https://osu.ppy.sh/wiki/en/Client/File_formats/Osu_%28file_format%29).
 
@@ -119,3 +119,30 @@ To tune the learning rate, we've tried training the ```notePresenceRNN``` for 10
 <p align="center">
   <img src="/images/learning_rate_training_curves.png" alt="Learning Rate Training Curves" width="600"/>
 </p>
+
+### Authors and Contributions
+Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)): 
+- Created the preprocessing code (with Natalie), and guided the other authors on how to obtain and preprocess the data.
+- Wrote most of the helper functions in ```helper.py```.
+- Wrote a transformer model for this task (```transformer.py```). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
+- Proposed different models that could solve this problem.
+
+Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
+- Created the preprocessing code (with Sloan).
+- Helped write some of the helper functions in ```helper.py```.
+- Helped David with postprocessing.py
+- Trained the ```notePresenceRNN``` and ```noteFinisherRNN``` models on her computer.
+
+Paul Zhang ([@sjorv](https://github.com/sjorv)): 
+- Created the RNN models.
+- Wrote the training code and the loss functions.
+- Optimized preprocessing and postprocessing code. 
+- Evaluated the model qualitatively, by creating *osu!Taiko* beatmaps using the model.
+- Wrote most of the code documentation. 
+- Composed this README file (and most diagrams in this file).
+- Proposed and built consensus for this project.
+
+David Zhao (@[dqdotz](https://github.com/dqdotz)):
+- Wrote ```postprocessing.py``` and ```postprocessing_helpers.py```.
+- Obtained statistics on the dataset.
+- Trained the ```noteColourRNN``` model on his computer.
