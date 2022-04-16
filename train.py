@@ -18,7 +18,8 @@ train_losses = []
 val_losses = []
 val_iters = []
 
-loss_dump = open('losses.csv','w', encoding='utf8')
+train_loss_dump = open('losses.csv','w', encoding='utf8')
+val_loss_dump = open('validation.csv','w', encoding='utf8')
 
 SEED = 88
 SPLIT = [0.8, 0.9] # where to split the training set into train:valid:tes
@@ -34,13 +35,20 @@ def plot(train_losses, val_losses, val_iters):
     plt.show()
 
 def dump_losses(train_losses, val_losses, val_iters):
-    global loss_dump
-    header = ['losses', 'val_losses', 'val_iters']
-    writer = csv.writer(loss_dump)
-    writer.writerow(header)
-    for i, j, k in zip(train_losses, val_losses, val_iters):
-        writer.writerow([i,j,k])
-
+    global train_loss_dump, val_loss_dump
+    train_header = ['training losses']
+    train_writer = csv.writer(train_loss_dump)
+    train_writer.writerow(train_header)
+    
+    for i in (train_losses):
+        train_writer = csv.writer([i])
+    
+    val_header = ['val_losses', 'val_iters']    
+    val_writer = csv.writer(val_loss_dump)
+    val_writer.writerow(val_header)
+    
+    for j, k in zip(val_losses, val_iters):
+        val_writer.writerow([j,k])
         
 def signal_handler(sig, frame):
     global train_losses, val_losses, val_iters
@@ -130,7 +138,7 @@ def model_compute_note_colour(model: noteColourRNN, audio_windows, notes_data):
 def model_compute_note_finisher(model: noteFinisherRNN, audio_windows, notes_data):
     return model(audio_windows, notes_data)
 
-TRAIN_PATH = os.path.join("data", "npy", "futsuu")
+TRAIN_PATH = os.path.join("data", "npy", "kantan")
 
 class MapDataset(Dataset): 
     def __init__(self, start, stop):
@@ -269,6 +277,8 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
 
 if __name__ == "__main__":
     
+    
+    
     # Plot upon SIGINT..
     signal.signal(signal.SIGINT, signal_handler)
     
@@ -279,6 +289,21 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         model = model.cuda()
     
-    train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1001, wd=0.00001, 
-                      checkpoint_path= None, plot=True, augment_noise=True)
+    train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1001, wd=0, 
+                checkpoint_path="C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-new-model-epoch{}-lr-{}.pk", plot=True, augment_noise=True)
     
+    dump_losses(train_losses, val_losses, val_iters)
+    
+    # for lr in [1e-4,1e-5,1e-6]:
+    #     model_cop = copy.deepcopy(model)
+    #     model_cop.rnn.flatten_parameters()
+    #     train_losses, val_losses, val_iters = train_rnn_network(model_cop, model_compute_note_presence, note_presence_loss, learning_rate=lr, num_epochs=101, wd=0, checkpoint_path="C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-search-bid-kantan{}-lr-{}.pk")
+    #     plt.plot(train_losses, label=f"Training Loss (lr={lr})")
+    #     plt.plot(val_iters, val_losses, label=f"Validation Loss")
+        
+    # plt.title(f"Learning Rate Search for notePresenceRNN")
+    # plt.legend()
+    # plt.xlabel("Iteration")
+    # plt.ylabel("Cross-Entropy Loss")
+    # plt.show()
+
