@@ -9,10 +9,44 @@ from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
 import random
 import helper
 import hyper_param
+import csv
+import signal, sys
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
+train_losses = []
+val_losses = []
+val_iters = []
+
+loss_dump = open('losses.csv','w', encoding='utf8')
+
 SEED = 88
+
+
+def plot(train_losses, val_losses, val_iters):
+    plt.title(f"RNN Hyperparameter Tuning")
+    plt.plot(train_losses, label=f"Training Loss")
+    plt.plot(val_iters, val_losses, label=f"Validation Loss")
+    plt.legend()
+    plt.xlabel("Iteration")
+    plt.ylabel("Loss")
+    plt.show()
+
+def dump_losses(train_losses, val_losses, val_iters):
+    global loss_dump
+    header = ['losses', 'val_losses', 'val_iters']
+    writer = csv.writer(loss_dump)
+    writer.writerow(header)
+    for i, j, k in zip(train_losses, val_losses, val_iters):
+        writer.writerow([i,j,k])
+
+        
+def signal_handler(sig, frame):
+    global train_losses, val_losses, val_iters
+    plot(train_losses, val_losses, val_iters)
+    dump_losses(train_losses, val_losses, val_iters)
+    loss_dump.close()
+    sys.exit(0)
 
 def note_presence_loss(model_output, notes_data):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
@@ -101,9 +135,18 @@ Arguments:
 - checkpoint_path: path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
 - plot: Plot the training and validation curves.
 """
-def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
+def train_rnn_network(model, model_compute, criterion, num_epochs=1, learning_rate=1e-3, wd=0, 
     checkpoint_path=None, plot=False, augment_noise=True):
     print(f"Beginning training (lr={learning_rate})")
+    
+    global train_losses
+    global val_losses
+    global val_iters
+    
+    # Reset plot arrays
+    train_losses = []
+    val_losses = []
+    val_iters = []
     
     train_dataset = MapDataset(0, 0.8)
     val_dataset = MapDataset(0.8, 0.9)
@@ -111,9 +154,6 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
     val_loader = DataLoader(val_dataset, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
 
-    train_losses = []
-    val_losses = []
-    val_iters = []
 
     # training loop
     for epoch_num in range(num_epochs):
@@ -190,11 +230,35 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
     return train_losses, val_losses, val_iters
 
 if __name__ == "__main__":
+    
+    # Plot upon SIGINT..
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    training_losses = []
+    validation_losses = []
+    validation_iters = []
+    
     model = notePresenceRNN()
-    model.load_state_dict(torch.load("C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-working-best-trywd-0.00001-epoch-325-lr-1e-05.pk"))
-    if torch.cuda.is_available():
-        model = model.cuda()
+    for i in range(0,285,5):
+        model.load_state_dict(torch.load(f"C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\old\\{i}.pk"))
+        if torch.cuda.is_available():
+            model = model.cuda()
     
-    train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1001, wd=0.00001, 
-                      checkpoint_path= "C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-working-best-trywd-0.00001-with-noise-epoch-{}-lr-{}.pk", plot=True, augment_noise=True)
+    # train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-6, num_epochs=1001, wd=0.000001, 
+                    #   checkpoint_path= "C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-newest-trywd-0.000001-without-noise-epoch-{}-lr-{}.pk", plot=True, augment_noise=False)
     
+        train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1, wd=0.000001, 
+                        checkpoint_path= None, plot=False, augment_noise=False)
+        training_losses.append(train_losses)
+        validation_losses.append(val_losses)
+        validation_iters.append(i)
+
+    plt.title(f"RNN Hyperparameter Tuning")
+    plt.plot(validation_iters, training_losses, label=f"Training Loss")
+    plt.plot(validation_iters, validation_losses, label=f"Validation Loss")
+    plt.legend()
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.show()
+
+
