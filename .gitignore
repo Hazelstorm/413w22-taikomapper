@@ -3,6 +3,7 @@ __pycache__
 *.mp3
 *.txt
 checkpoint/
+checkpoints/
 .vscode
 *.pk
 *.osu

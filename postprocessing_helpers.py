@@ -7,7 +7,7 @@ AudioLeadIn = "0"
 PreviewTime = "-1"
 Countdown = "0"
 SampleSet = "Normal"
-StackLeniency = "0.7"
+StackLeniency = "0"
 Mode = "1"
 LetterboxInBreaks = "0"
 WidescreenStoryboard = "0"
@@ -19,10 +19,10 @@ TimelineZoom = "2"
 # MetadataValues
 Title = ""
 TitleUnicode = ""
-Artist = "Artist"
-ArtistUnicode = "Artist"
-Creator = "Creator"
-Version = "Difficulty"
+Artist = ""
+ArtistUnicode = ""
+Creator = "TaikoMapper"
+Version = "Taiko"
 Source = ""
 Tags = ""
 BeatmapID = "0"
@@ -114,61 +114,61 @@ Returns all key value pairs for general parameters.
 """
 def get_general_param():
     global current_vals
-    od = OrderedDict()
-    od['AudioFilename'] = current_vals['AudioFilename']
-    od['AudioLeadIn'] = current_vals['AudioLeadIn']
-    od['PreviewTime'] = current_vals['PreviewTime']
-    od['Countdown'] = current_vals['Countdown']
-    od['SampleSet'] = current_vals['SampleSet']
-    od['StackLeniency'] = current_vals['StackLeniency']
-    od['Mode'] = current_vals['Mode']
-    od['LetterboxInBreaks'] = current_vals['LetterboxInBreaks']
-    od['WidescreenStoryboard'] = current_vals['WidescreenStoryboard']
-    return od.items()
+    d = {}
+    d['AudioFilename'] = current_vals['AudioFilename']
+    d['AudioLeadIn'] = current_vals['AudioLeadIn']
+    d['PreviewTime'] = current_vals['PreviewTime']
+    d['Countdown'] = current_vals['Countdown']
+    d['SampleSet'] = current_vals['SampleSet']
+    d['StackLeniency'] = current_vals['StackLeniency']
+    d['Mode'] = current_vals['Mode']
+    d['LetterboxInBreaks'] = current_vals['LetterboxInBreaks']
+    d['WidescreenStoryboard'] = current_vals['WidescreenStoryboard']
+    return d
 
 """
 Returns all key value pairs for Editor parameters.
 """
 def get_editor_param():
     global current_vals
-    od = OrderedDict()
-    od['DistanceSpacing'] =  current_vals['DistanceSpacing']
-    od['BeatDivisor'] = current_vals['BeatDivisor']
-    od['GridSize'] = current_vals['GridSize']
-    od['TimelineZoom'] = current_vals['TimelineZoom']
-    return od.items()
+    d = {}
+    d['DistanceSpacing'] =  current_vals['DistanceSpacing']
+    d['BeatDivisor'] = current_vals['BeatDivisor']
+    d['GridSize'] = current_vals['GridSize']
+    d['TimelineZoom'] = current_vals['TimelineZoom']
+    return d
 
 """
 Returns all key value pairs for MetadataValues parameters.
 """
 def get_metadata_param():
     global current_vals
-    od = OrderedDict()
-    od['Title'] =  current_vals['Title']
-    od['TitleUnicode'] = current_vals['TitleUnicode']
-    od['Artist'] = current_vals['Artist']
-    od['ArtistUnicode'] = current_vals['ArtistUnicode']
-    od['Creator'] = current_vals['Creator']
-    od['Version'] = current_vals['Version']
-    od['Source'] = current_vals['Source']
-    od['Tags'] = current_vals['Tags']
-    od['BeatmapID'] = current_vals['BeatmapID']
-    od['BeatmapSetID'] = current_vals['BeatmapSetID']
-    return od.items()
+    d = {}
+    d['Title'] =  current_vals['Title']
+    d['TitleUnicode'] = current_vals['TitleUnicode']
+    d['Artist'] = current_vals['Artist']
+    d['ArtistUnicode'] = current_vals['ArtistUnicode']
+    d['Creator'] = current_vals['Creator']
+    d['Version'] = current_vals['Version']
+    d['Source'] = current_vals['Source']
+    d['Tags'] = current_vals['Tags']
+    d['BeatmapID'] = current_vals['BeatmapID']
+    d['BeatmapSetID'] = current_vals['BeatmapSetID']
+    return d
 
 """
 Returns all key value pairs for MetadataValues parameters.
 """
 def get_difficulty_param():
     global current_vals
-    od = OrderedDict()
-    od['HPDrainRate'] = current_vals['HPDrainRate']
-    od['CircleSize'] = current_vals['CircleSize']
-    od['OverallDifficulty'] = current_vals['OverallDifficulty']
-    od['ApproachRate'] = current_vals['ApproachRate']
-    od['SliderMultiplier'] = current_vals['SliderMultiplier']
-    od['SliderTickRate'] = current_vals['SliderTickRate']
-    return od.items()
+    d = {}
+    d['HPDrainRate'] = current_vals['HPDrainRate']
+    d['CircleSize'] = current_vals['CircleSize']
+    d['OverallDifficulty'] = current_vals['OverallDifficulty']
+    d['ApproachRate'] = current_vals['ApproachRate']
+    d['SliderMultiplier'] = current_vals['SliderMultiplier']
+    d['SliderTickRate'] = current_vals['SliderTickRate']
+    return d
 
 """
 Returns all key value pairs for TimingPoints paramters
