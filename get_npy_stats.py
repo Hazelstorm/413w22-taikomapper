@@ -3,45 +3,62 @@ from helper import get_npy_data
 import numpy as np
 
 
-dir_path = "Z:\\Users\\David\\Documents\\@@@@UTM\\2022 winter\\CSC 413\\p\\413w22-taikomapper\\data\\npy"
-difficulties = ["futsuu","kantan","muzukashii","oni"]
+dir_path = os.path.join("data", "npy")
+difficulties = ["kantan", "futsuu", "muzukashii", "oni"]
 
+
+"""
+Returns the length of the song (in ms), total number of snaps in song, and 
+total number of nonzero notes, in that order.
+<path> is a filepath to a numpy difficulty file.
+"""
 def count_snaps_notes(path):
     audio_data, timing_data, notes_data = get_npy_data(path)
-    t1, audioname = os.path.split(path)
-    path_to_folder, difficulty_str = os.path.split(t1)
     total_snaps = np.shape(notes_data)[0]
     total_notes = np.count_nonzero(notes_data)
     length_of_song = np.shape(audio_data)[0]
     return (length_of_song, total_snaps, total_notes)
 
-def get_count_matrix(dir_path):
-    '''
-    columns are the difficulties in order
-    row 0: number of songs count
-    row 1: length of all songs
-    row 2: number of snaps
-    row 3: number of notes
-    '''
-    num_difficulties = len(difficulties)
-    counts_matrix = np.zeros((4, num_difficulties), dtype=int)
-    for i in range(num_difficulties):
-        print(difficulties[i])
-        diff_dir_path = os.path.join(dir_path, difficulties[i])
-        os.chdir(diff_dir_path)
-        subdirs = [d for d in os.listdir('.') if os.path.isdir(d)]
+"""
+Returns a dictionary containing informaiton on the following for each difficulty (and their totals):
+- Total number of difficulties
+- Total song length, in ms
+- Total number of snaps
+- Total number of notes
+"""
+def get_counts(dir_path):
+    counts = {
+        "Total": {"Number of Difficulties": 0,
+            "Total Song length (ms)": 0,
+            "Total snaps": 0,
+            "Total notes": 0,}
+    }
+    for diff in difficulties:
+        counts[diff] = {
+            "Number of Difficulties": 0,
+            "Total Song length (ms)": 0,
+            "Total snaps": 0,
+            "Total notes": 0,
+        }
+        diff_dir_path = os.path.join(dir_path, diff)
+        subdirs = [d for d in os.listdir(diff_dir_path) if os.path.isdir(os.path.join(diff_dir_path, d))]
         for song in subdirs:
             song_dir_path = os.path.join(diff_dir_path, song)
-            # print(song_dir_path)
             song_len, num_snaps, num_notes = count_snaps_notes(song_dir_path)
-            counts_matrix[0][i] += 1
-            counts_matrix[1][i] += song_len
-            counts_matrix[2][i] += num_snaps
-            counts_matrix[3][i] += num_notes
-            if (counts_matrix[0][i] % 100 == 0):
-                print(counts_matrix[0][i])
-    return counts_matrix
+            counts[diff]["Number of Difficulties"] += 1
+            counts[diff]["Total Song length (ms)"] += song_len
+            counts[diff]["Total snaps"] += num_snaps
+            counts[diff]["Total notes"] += num_notes
+            counts["Total"]["Number of Difficulties"] += 1
+            counts["Total"]["Total Song length (ms)"] += song_len
+            counts["Total"]["Total snaps"] += num_snaps
+            counts["Total"]["Total notes"] += num_notes
 
-cm = get_count_matrix(dir_path)
-print(cm)
+    return counts
+
+counts = get_counts(dir_path)
+for diff in counts.keys():
+    print(f"{diff} statistics:")
+    for attr in counts[diff].keys():
+        print(f"{attr}: {counts[diff][attr]}")
 

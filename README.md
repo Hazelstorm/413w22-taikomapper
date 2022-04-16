@@ -154,7 +154,7 @@ Lastly, if our model were successful, our model could create many Taiko beatmaps
 Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)): 
 - Created the preprocessing code (with Natalie), and guided the other authors on how to obtain and preprocess the data.
 - Wrote most of the helper functions in ```helper.py```.
-- Wrote a transformer model for this task (```transformer.py```). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
+- Wrote a transformer model for this task (```transformer.py``` in older commits). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
 - Proposed different models that could solve this problem.
 
 Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
