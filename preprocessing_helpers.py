@@ -136,10 +136,6 @@ def get_map_audio(filepath, convert=True):
                                        fmin=fmin, fmax=fmax)
 
     spectro = np.squeeze(S).T
-    
-    if spectro.shape[0] > hyper_param.max_ms:
-        print(f"{os.path.basename(os.path.dirname(filepath))}: Audio exceeds max length")
-        return None
 
     return spectro
         
