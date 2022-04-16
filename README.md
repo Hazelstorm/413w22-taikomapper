@@ -114,14 +114,26 @@ In addition, the training loop has the following hyperparameters:
 - ```learning_rate```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
 
 ### Tuning
-To tune the learning rate, we've tried training the ```notePresenceRNN``` for 100 epochs with varying learning rates (```1e-4, 1e-5, 1e-6```). After plotting the training curves, we've decided to use a learning rate of ```1e-5``` for ```notePresenceRNN```.
+To tune the learning rate, we've tried training the ```notePresenceRNN``` for 100 epochs with varying learning rates (```1e-4, 1e-5, 1e-6```). After plotting the training curves, we've decided to use a learning rate of ```1e-5``` to start out in ```notePresenceRNN```.
 
 <p align="center">
   <img src="/images/learning_rate_training_curves.png" alt="Learning Rate Training Curves" width="600"/>
 </p>
 
+However, we've reached a plateau of around 0.75 loss after around 200 iterations (with the model starting out pretrained from the learning rate search). 
+<!--- image --->
+After switching to a learning rate of ```1e-6```, the loss seemed to decrease again.
+
+
+Originally, we started with a hidden size of 20. However, once we've tried increasing the hidden sizes to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. 
+
+Unfortunately, due to time constraints, we do not have any formal grid searching tests on the hidden sizes or embedding sizes. As well, since preprocessing the whole dataset takes a long time (a few hours), we were unable to test the effect of ```n_mels```, ```fmin```, and ```fmax``` on the training curve. For ```fmin``` and ```fmax``` we instead just used heuristics in setting the values to ```fmin = 20, fmax = 5000````, since most musical elements appear in this frequency range.
+
+We've found that increasing ```note_presence_weight``` to 50 causes "note spam" for the first few hundred iterations, where ```notePresenceRNN``` assigns a note to almost every snap. On the other hand, setting ```note_presence_weight = 1``` caused only a handful of notes to appear in each map; ```note_presence_weight = 3``` still had sparse note density. Thus, we've opted for ```note_presence_weight = 8```. 
+
+
 ## Ethical Considerations
-This project, it it were successful, could be easily made into a user-friendly "Taiko Map Generator", for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
+This project, with some further training, could be easily made into a user-friendly "Taiko Map Generator", for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
 
 The most immediate ethical issue regarding this project concerns music licensing, especially with regards to the mapsets used for model training. As *osu!* mapsets are user-uploaded, they may contain copyrighted music. Although *osu!* [encourages its users to obtain music licensing permission before uploading mapsets](https://osu.ppy.sh/legal/en/Music_licensing), sometimes copyrighted music is still used in mapsets. There have been [instances](https://gist.github.com/peppy/99e6959772083cdfde8a) of offending material being removed from the *osu!* website due to copyright issues.
 
@@ -131,7 +143,9 @@ Also, the audio files in ranked mapsets (from which we extracted the training da
 
 Our model performs better on certain genres of music. The "simplicity" of a musical genre may affect our model's performance, but we believe that the biggest contributor to this bias is a skewed dataset - the dataset only contains songs for which somebody has created a beatmap, and the *osu!* community tends to prefer mapping and playing certain genres of music over others (both due to personal preference and due to suitability for a rhythm game). Even worse, our model cannot process musical genres which often contain variable tempo such as classical music; this decision to not consider multi-tempo music was made in order to simplify our code. Unfortunately we do not know how to resolve this issue, as we are unable to obtain Taiko beatmaps for a wider variety of musical genres. 
 
-Lastly, if our model were successful, our model could create many Taiko beatmaps at once. This could potentially displace the role of Taiko mappers, and also overwhelm the "Beatmap Nominators" - a group of mappers that quality check maps and place maps in the "ranked" status. However, we believe that this isn't an issue for now; our current model's quality does not compete with human mappers. Even if our model's ability to produce sequences of Taiko notes resemebled that of a human mapper, there are still aesthetic enhancements that need to be made (such as "hitsounds", which are custom sound effects played upon tapping the drum). Thus, our model is unlikely to generate maps on its own that pass the quality check.
+We've noticed that our model tends to generate maps with gameplay difficulty lying in the Muzukashii to Oni range. Thus, only players at a certain skill level (between Muzukashii and Oni) may find our model useful. We could train distinct models for Kantan and Futsuu, as well as models for difficulties beyond Oni, by choosing a dataset of easier maps, or decreasing ```note_presence_weight```. Unfortunately, due to time constraints and limited computational resources, we are unable to train such models.
+
+Lastly, if our model were successful, our model could create many Taiko beatmaps at once. This could potentially displace the role of Taiko mappers, and also overwhelm the "Beatmap Nominators" - a group of mappers that quality check maps and place maps in the "ranked" status. However, we believe that this isn't an issue for now; our current model's quality does not yet compete with human mappers, at least for an experienced *osu!Taiko* player. Even if our model's ability to produce sequences of Taiko notes resemebled that of a human mapper, there are still aesthetic enhancements that need to be made (such as "hitsounds", which are custom sound effects played upon tapping the drum). Thus, our model is unlikely to generate maps on its own that pass the quality check.
 
 ## Authors and Contributions
 Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)): 
@@ -144,7 +158,7 @@ Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Created the preprocessing code (with Sloan).
 - Helped write some of the helper functions in ```helper.py```.
 - Helped David with postprocessing.py
-- Trained the ```notePresenceRNN``` and ```noteFinisherRNN``` models on her computer.
+- Trained the ```notePresenceRNN``` and ```noteFinisherRNN``` models on her computer (RTX 3080 Ti).
 
 Paul Zhang ([@sjorv](https://github.com/sjorv)): 
 - Created the RNN models.
@@ -158,4 +172,4 @@ Paul Zhang ([@sjorv](https://github.com/sjorv)):
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Obtained statistics on the dataset.
-- Trained the ```noteColourRNN``` model on his computer.
+- Trained the ```noteColourRNN``` model on his computer (RTX 3070 Ti).
