@@ -3,7 +3,9 @@ An *osu!Taiko* Map Generator. Created as a final project for CSC413H5 Winter 202
 
 *Dependencies*: Python 3.8, librosa, ffmpeg, pydub, PyTorch
 
-## osu!Taiko
+## Introduction
+
+### osu!Taiko
 [*osu!*](https://osu.ppy.sh/) is a free-to-play rhythm game in which players attempt to click on circles to the beat of the music. In *osu!Taiko*, a game mode in *osu!* inspired by *Taiko no Tatsujin*, players are presented with a sequence of incoming red and blue circles (called "don"s and "kat"s respectively) approaching a drum. When a don or kat arrives at the center of the drum, the player must use the keyboard to tap the drum in the center (default keys X or C) or on the edge (Z or V) according to the colour of the note. Both don's and kat's also have a respective "finisher" variant (indicated by a larger circle of the respective colour), requiring the player to tap both center or both edge keys. (There are also *slider* and *spinner* notes, which are sparsely used and ignored in our model.)
 
 A sample gameplay video (played by Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm))) can be found [here](https://www.youtube.com/watch?v=7wP_YnOfpj8).
@@ -16,11 +18,11 @@ Taiko levels are stored in "beatmaps" (also known as "difficulties" or simply "m
 - Timing information, including the BPM (tempo) and offset (time of first beat in milliseconds, relative to start of audio file) of the song. There could be multiple BPMs and offsets for a song with varying tempo. 
 - The notes in the map. For Taiko, each note has an offset (relative to the start of the audio file) and a "type" (used to determine whether the note is a don/kat and whether the note is a finisher). 
 
-Typically, a Taiko mapset has one or more of the following difficulty names, in order of increasing gameplay difficulty: "Kantan" (Easy), "Futsuu" (Normal), "Muzukashii" (Hard), "Oni" (Demon). However, mapset creators can give custom names to difficulties, especially for difficulties that are harder than Oni. We ignore such difficulties in our model.
+Typically, a Taiko mapset has one or more of the following difficulty names, in order of increasing gameplay difficulty: "Kantan" (Easy), "Futsuu" (Normal), "Muzukashii" (Hard), "Oni" (Demon). However, mapset creators can give custom names to difficulties, especially for difficulties that are harder than Oni. We ignore such difficulties in our model, and only parse for Kantan, Futsuu, Muzukashii, and Oni difficulties.
 
 For more detailed information on the .osu file format, refer to the [*osu!Wiki*](https://osu.ppy.sh/wiki/en/Client/File_formats/Osu_%28file_format%29).
 
-## Introduction
+### TaikoMapper
 
 TaikoMapper is a modular seq2seq model that produces *osu!Taiko* maps. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
 
@@ -80,10 +82,6 @@ successful and unsuccessful example
 ### Source
 We have downloaded a dump of "ranked" Taiko mapsets from [this osu! forum post](https://osu.ppy.sh/community/forums/topics/330552?n=1). An uploaded *osu!* mapset can become ranked after passing a quality assurance process. We chose to only use ranked mapsets from 2013-2021 to assure data quality, as older mapsets tend to have poorer quality due to the lax quality assurance criteria at the time. 
 
-### Data Summary
-There are a total of 2795 ranked mapsets from 2013-2021, with 9113 Taiko difficulties. 
-<!--- total length, average length, total # snaps, average # snaps, total # notes, average # notes --->
-
 ### Preprocessing
 First, create a ```data/``` directory in this repository's folder. In ```data/```, create the directories ```2013/, 2014/, 2015/, 2016/, 2017/, 2018/, 2019/, 2020/, 2021```.
 
@@ -91,9 +89,27 @@ The Taiko mapset dump categorizes the mapsets by year. Each mapset is in .osz fo
 
 Having all the mapsets in the ```data/``` directory, we run ```preprocessing.py```. ```preprocessing.py`` performs the following:
 - ```create_path_dict()```: Create the file ```data.pkl```. For each mapset folder in ```data/```, find the audio file, and the .osu files. For any .osu file that corresponds to a Kantan, Futsuu, Muzukashii, or Oni difficulty, the .osu file's aboslute path and the audio file's absolute path is stored in ```data.pkl```.
-- ```create_data()```: Reading from ```data.pkl```, each mapset from ```data.pkl``` has its audio file converted into a mel spectrogram (not yet converted to spectrogram windows), as described in the [Introduction](#introduction) section. Each difficulty in the mapset is converted into a time series of ```N``` notes (```N``` being the number of snaps in the song), and also has its timing data (BPM, stored as ```bar_len = 60000/BPM```) and offset extracted. Both the spectrogram and notes time series are numpy arrays; these numpy arrays are dumped into the ```data/npy``` directory. The BPM and offest are stored in a json file. 
+- ```create_data()```: Reading from ```data.pkl```, each mapset from ```data.pkl``` has its audio file converted into a mel spectrogram (not yet converted to spectrogram windows), as described in the [Introduction](#introduction) section. Each difficulty in the mapset is converted into a time series of ```N``` notes (```N``` being the number of snaps in the song), and also has its timing data (BPM, stored as ```bar_len = 60000/BPM```) and offset extracted. Both the spectrogram and notes time series are numpy arrays; these numpy arrays are dumped into the ```data/npy``` directory. The BPM and offest are stored in a json file. While processing, ```create_data()``` prints a warning and skips any map that our model cannot process (due to issues such as varying tempo or unsnapped notes). *Please note that create_data() takes a few seconds to load each audio file using librosa, and hence may take a couple hours to preprocess all mapsets.*
 
 The conversion from spectrogram to spectrogram windows is performed during training time, as we wanted the ability to change the hyperparameter ```window_size``` without preprocessing.
+
+### Data Summary
+There are a total of 2795 ranked mapsets from 2013-2021 containing a difficulty from Kantan, Futsuu, Muzukashii, and Oni. In total, there are 9113 such Taiko difficulties. However, not all mapsets are processable by our model, due to issues as mentioned previously. In total (using ```get_npy_stats.py```), there are only 4749 difficulties that are usable in our dataset.
+
+Here are some other per-difficulty statistics:
+
+<div align="center">
+
+| Difficulty | Total Difficulties | Total Song Length (s) | Total snaps | Total notes |
+|------------|--------------------|-----------------------|-------------|-------------|
+| Kantan     | 1029               | 131999.494            | 1453333     | 180335      |
+| Futsuu     | 1148               | 148545.661            | 1630323     | 347697      |
+| Muzukashii | 1286               | 175900.734            | 1938292     | 606735      |
+| Oni        | 1286               | 189210.969            | 2124069     | 897031      |
+| Total      | 4749               | 645656.858*           | 7146017*    | 2031798     |
+  
+</div>
+* Note that many songs are counted repeatedly, once for each difficulty.
 
 ### Data Split
 We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model. Also, the validation loss was only computed every 10 epochs of training, to reduce training time. 
@@ -169,10 +185,10 @@ Paul Zhang ([@sjorv](https://github.com/sjorv)):
 - Optimized preprocessing and postprocessing code. 
 - Evaluated the model qualitatively, by creating *osu!Taiko* beatmaps using the model.
 - Wrote most of the code documentation. 
-- Composed this README file (and most diagrams in this file).
+- Composed this README file.
 - Proposed and built consensus for this project.
 
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote ```postprocessing.py``` and ```postprocessing_helpers.py```.
-- Obtained statistics on the dataset.
+- Wrote ```get_npy_stats.py``` to obtain statistics on the dataset.
 - Trained the ```noteColourRNN``` model on his computer (RTX 3070).
