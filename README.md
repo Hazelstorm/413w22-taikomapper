@@ -100,13 +100,14 @@ Here are some other per-difficulty statistics:
 
 <div align="center">
 
-| Difficulty | Total Difficulties | Total Song Length (s) | Total snaps | Total notes |
-|------------|--------------------|-----------------------|-------------|-------------|
-| Kantan     | 1029               | 131999.494            | 1453333     | 180335      |
-| Futsuu     | 1148               | 148545.661            | 1630323     | 347697      |
-| Muzukashii | 1286               | 175900.734            | 1938292     | 606735      |
-| Oni        | 1286               | 189210.969            | 2124069     | 897031      |
-| Total      | 4749               | 645656.858*           | 7146017*    | 2031798     |
+| Difficulty | Total Difficulties | Total Song Length (s) | Total snaps | Total notes | Average Song Length (s) | Average snaps count | Average notes count |
+|------------|--------------------|-----------------------|-------------|-------------|-------------------------|---------------------|---------------------|
+| Kantan     | 1029               | 131999.5              | 1453333     | 180335      | 128.3                   | 1412.4              | 175.3               |
+| Futsuu     | 1148               | 148545.7              | 1630323     | 347697      | 129.4                   | 1420.1              | 302.9               |
+| Muzukashii | 1286               | 175900.7              | 1938292     | 606735      | 136.8                   | 1507.2              | 471.8               |
+| Oni        | 1286               | 189211.0              | 2124069     | 897031      | 147.1                   | 1651.7              | 697.5               |
+|            |                    |                       |             |             |                         |                     |                     |
+| Total      | 4749               | 645656.9*             | 7146017*    | 2031798     |                         |                     |                     |
   
 </div>
 * Note that many songs are counted repeatedly, once for each difficulty.
@@ -129,6 +130,7 @@ Our TaikoMapper model has the following hyperparameters:
 In addition, the training loop has the following hyperparameters:
 - ```note_presence_weight``` and ```note_finisher_weight``` (in ```train.py```): In a typical Taiko map, most snaps do not have notes. ```note_presence_weight``` is used to compensate for this note sparsity by emphasizing on present notes when computing loss for ```notePresenceRNN```. Similarly, very few notes are finishers, so ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```.
 - ```learning_rate```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
+- ```augment_noise```: Also found in ```train.py```, this parameter adds noise to the spectrogram windows before training the models. 
 
 ### Tuning
 To tune the learning rate, we've tried training the ```notePresenceRNN``` for 100 epochs with varying learning rates (```1e-4, 1e-5, 1e-6```). After plotting the training curves, we've decided to use a learning rate of ```1e-5``` to start out in ```notePresenceRNN```.
