@@ -51,11 +51,18 @@ def get_map_data(filepath):
             print(f"{os.path.basename(filepath)}: Wrong mode")
             return None, None, None
         if osu_file[i] == "[TimingPoints]\n":
-            offset = float(osu_file[i+1].split(",")[0])
-            bar_len = float(osu_file[i+1].split(",")[1])
+            i += 1
+            offset = float(osu_file[i].split(",")[0])
+            bar_len = float(osu_file[i].split(",")[1])
+            i += 1
             if offset < 0:
                 print(f"{os.path.basename(filepath)}: Found negative offset")
                 return None, None, None
+            while (osu_file[i] != "\n"):
+                if osu_file[i].split(",")[6] == "1":
+                    print(f"{os.path.basename(filepath)}: Found multiple uninherited timing points")
+                    return None, None, None
+                i += 1
         if osu_file[i] == "[HitObjects]\n":
             hit_objects_index = i
             while (i < len(osu_file) and osu_file[i] != "\n"):
@@ -70,7 +77,8 @@ def get_map_data(filepath):
         ary = hit_object.split(",")
         time = int(ary[2])
         type = get_note_type(ary[4])
-        lst.append((time, type))
+        if bit_flag(int(ary[3]), 0) == 1: # note is a hitcircle if bit 0 is flipped
+            lst.append((time, type))
     return lst, offset, bar_len
 
 """
