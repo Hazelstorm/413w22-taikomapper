@@ -131,6 +131,8 @@ Unfortunately, due to time constraints, we do not have any formal grid searching
 
 We've found that increasing ```note_presence_weight``` to 50 causes "note spam" for the first few hundred iterations, where ```notePresenceRNN``` assigns a note to almost every snap. On the other hand, setting ```note_presence_weight = 1``` caused only a handful of notes to appear in each map; ```note_presence_weight = 3``` still had sparse note density. Thus, we've opted for ```note_presence_weight = 8```. 
 
+## Results
+
 
 ## Ethical Considerations
 This project, with some further training, could be easily made into a user-friendly "Taiko Map Generator", for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
@@ -172,4 +174,4 @@ Paul Zhang ([@sjorv](https://github.com/sjorv)):
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Obtained statistics on the dataset.
-- Trained the ```noteColourRNN``` model on his computer (RTX 3070 Ti).
+- Trained the ```noteColourRNN``` model on his computer (RTX 3070).
