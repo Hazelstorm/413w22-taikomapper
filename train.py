@@ -16,7 +16,7 @@ SEED = 88
 SPLIT = [0.8, 0.9] # where to split the training set into train:valid:test
 
 note_presence_weight = 5 
-note_finisher_weight = 10
+note_finisher_weight = 50
 
 """
 Compute the average ratio of present notes to non-present notes on snaps, and update
