@@ -21,8 +21,7 @@ val_iters = []
 train_loss_dump = open('losses.csv','w', encoding='utf8')
 val_loss_dump = open('validation.csv','w', encoding='utf8')
 
-SEED = 88
-SPLIT = [0.8, 0.9] # where to split the training set into train:valid:tes
+SEED = 88 # Random seed used during training time to shuffle dataset
 
 
 def plot(train_losses, val_losses, val_iters):
@@ -34,6 +33,7 @@ def plot(train_losses, val_losses, val_iters):
     plt.ylabel("Loss")
     plt.show()
 
+"""Outputs the losses into a csv file."""
 def dump_losses(train_losses, val_losses, val_iters):
     global train_loss_dump, val_loss_dump
     train_header = ['training losses']
@@ -49,7 +49,8 @@ def dump_losses(train_losses, val_losses, val_iters):
     
     for j, k in zip(val_losses, val_iters):
         val_writer.writerow([j,k])
-        
+
+"""Plots training and validation loss, even upon keyboard interrupt."""
 def signal_handler(sig, frame):
     global train_losses, val_losses, val_iters
     plot(train_losses, val_losses, val_iters)
@@ -57,6 +58,41 @@ def signal_handler(sig, frame):
     train_loss_dump.close()
     val_loss_dump.close()
     sys.exit(0)
+
+# Model computation signatures
+def model_compute_note_presence(model: notePresenceRNN, audio_windows, notes_data):
+    return model(audio_windows)
+
+def model_compute_note_colour(model: noteColourRNN, audio_windows, notes_data):
+    return model(audio_windows, notes_data)
+
+def model_compute_note_finisher(model: noteFinisherRNN, audio_windows, notes_data):
+    return model(audio_windows, notes_data)
+
+
+# Data Loader
+TRAIN_PATH = os.path.join("data", "npy", "kantan")
+SPLIT = [0.8, 0.9] # where to split the training set into train:valid:tes
+
+class MapDataset(Dataset): 
+    def __init__(self, start, stop):
+        self.path = TRAIN_PATH
+        self.dir = os.listdir(self.path)
+        random.seed(SEED)
+        random.shuffle(self.dir)
+        self.dir = self.dir[round(len(self.dir)*start) : round(len(self.dir)*stop)]
+
+    def __len__(self):
+        return len(self.dir)
+
+    def __getitem__(self, idx):
+        song_path = os.path.join(self.path, self.dir[idx])
+        audio_data, timing_data, notes_data = helper.get_npy_data(song_path)
+        notes_data = notes_data.astype('int32')
+        audio_data, notes_data = torch.Tensor(audio_data), torch.Tensor(notes_data)
+        return audio_data, timing_data, notes_data
+
+
 
 note_presence_weight = 5 
 note_finisher_weight = 50
@@ -93,6 +129,8 @@ def compute_note_finisher_weight():
     global note_finisher_weight
     note_finisher_weight = total_not_finishers / total_finishers
 
+
+# Loss functions for each model
 def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
     pos_weight = torch.tensor(pos_weight)
@@ -100,7 +138,6 @@ def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight
         pos_weight = pos_weight.cuda()
     bce = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     loss = bce(model_output, nonzero_notes)
-
     return loss
 
 def note_colour_loss(model_output, notes_data):
@@ -108,7 +145,6 @@ def note_colour_loss(model_output, notes_data):
     nonzero_entries = notes_data > 0
     notes_data = notes_data[nonzero_entries]
     model_output = model_output[nonzero_entries]
-
     kat_notes = torch.eq(notes_data, torch.mul(2, torch.ones_like(notes_data))) \
                     + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
     kat_notes = kat_notes.to(dtype=torch.float32)
@@ -130,58 +166,13 @@ def note_finisher_loss(model_output, notes_data, pos_weight=note_finisher_weight
     loss = bce(model_output, finisher_notes)
     return loss
 
-def model_compute_note_presence(model: notePresenceRNN, audio_windows, notes_data):
-    return model(audio_windows)
-
-def model_compute_note_colour(model: noteColourRNN, audio_windows, notes_data):
-    return model(audio_windows, notes_data)
-
-def model_compute_note_finisher(model: noteFinisherRNN, audio_windows, notes_data):
-    return model(audio_windows, notes_data)
-
-TRAIN_PATH = os.path.join("data", "npy", "kantan")
-
-class MapDataset(Dataset): 
-    def __init__(self, start, stop):
-        self.path = TRAIN_PATH
-        self.dir = os.listdir(self.path)
-        random.seed(SEED)
-        random.shuffle(self.dir)
-        self.dir = self.dir[round(len(self.dir)*start) : round(len(self.dir)*stop)]
-
-    def __len__(self):
-        return len(self.dir)
-
-    def __getitem__(self, idx):
-        song_path = os.path.join(self.path, self.dir[idx])
-        audio_data, timing_data, notes_data = helper.get_npy_data(song_path)
-        notes_data = notes_data.astype('int32')
-        audio_data, notes_data = torch.Tensor(audio_data), torch.Tensor(notes_data)
-        return audio_data, timing_data, notes_data
-
-class baselineModel():
-    def __init__(self):
-        self.is_cuda = False
-        
-    def __call__(self, x):
-        return self.forward(x)
-        
-    def cuda(self):
-        self.is_cuda = True
-        return self
-    
-    def forward(self, x):
-        out = torch.zeros(1, x.shape[1], 5)
-        out[:,:,0] = 1
-        if self.is_cuda:
-            out = out.cuda()
-        return out
 
 """
 Trains the RNN.
 Arguments:
 - checkpoint_path: path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
 - plot: Plot the training and validation curves.
+- augment_noise: Setting this to True will add noise to the audio spectrograms during training time.
 """
 def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
     checkpoint_path=None, plot=False, augment_noise=True):
@@ -277,35 +268,32 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
     return train_losses, val_losses, val_iters
 
 if __name__ == "__main__":
-    
-    # Plot upon SIGINT..
-    signal.signal(signal.SIGINT, signal_handler)
-    
     print("Computing note presence weight...")
     compute_note_presence_weight()
     print("Computing note finisher weight...")
     compute_note_finisher_weight()
-    model = notePresenceBidirectionalRNN()
-    #model.load_state_dict(torch.load("C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-working-best-trywd-0.00001-epoch-325-lr-1e-05.pk"))
-    
-    if torch.cuda.is_available():
-        model = model.cuda()
-    
-    train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1001, wd=0, 
-                checkpoint_path="C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-new-model-epoch{}-lr-{}.pk", plot=True, augment_noise=True)
-    
-    dump_losses(train_losses, val_losses, val_iters)
-    
-    # for lr in [1e-4,1e-5,1e-6]:
-    #     model_cop = copy.deepcopy(model)
-    #     model_cop.rnn.flatten_parameters()
-    #     train_losses, val_losses, val_iters = train_rnn_network(model_cop, model_compute_note_presence, note_presence_loss, learning_rate=lr, num_epochs=101, wd=0, checkpoint_path="C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-search-bid-kantan{}-lr-{}.pk")
-    #     plt.plot(train_losses, label=f"Training Loss (lr={lr})")
-    #     plt.plot(val_iters, val_losses, label=f"Validation Loss")
-        
-    # plt.title(f"Learning Rate Search for notePresenceRNN")
-    # plt.legend()
-    # plt.xlabel("Iteration")
-    # plt.ylabel("Cross-Entropy Loss")
-    # plt.show()
+    signal.signal(signal.SIGINT, signal_handler) # Plot upon SIGINT
+    checkpoint_dir = "checkpoints"
+    if not (os.path.isdir("checkpoints")):
+        os.mkdir("checkpoints")
 
+
+    # Train notePresenceRNN
+    # presence_model = notePresenceBidirectionalRNN()
+    # if torch.cuda.is_available():
+    #     presence_model = presence_model.cuda()
+    # # presence_model.load_state_dict(torch.load("..."))
+    # train_losses, val_losses, val_iters = train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
+    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
+    #     plot=True, augment_noise=True)
+    # dump_losses(train_losses, val_losses, val_iters)
+    
+    # Train noteColourRNN
+    colour_model = noteColourRNN()
+    if torch.cuda.is_available():
+        colour_model = colour_model.cuda()
+    # colour_model.load_state_dict(torch.load("..."))
+    train_losses, val_losses, val_iters = train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, 
+        learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteColourRNN-iter{}.pt", 
+        plot=True, augment_noise=True)
+    dump_losses(train_losses, val_losses, val_iters)

@@ -51,8 +51,8 @@ class noteColourRNN(nn.Module):
         self.emb_size = emb_size
         self.hidden_size = hidden_size
         self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH + 1, self.emb_size)
-        self.rnn = nn.GRU(input_size=emb_size, hidden_size=self.hidden_size)
-        self.fc = nn.Linear(self.hidden_size, 1)
+        self.rnn = nn.GRU(input_size=emb_size, hidden_size=self.hidden_size, bidirectional=True)
+        self.fc = nn.Linear(self.hidden_size * 2, 1)
     
     def forward(self, audio_windows, notes_data):
         notes_data = torch.transpose(notes_data, 0, 1)
