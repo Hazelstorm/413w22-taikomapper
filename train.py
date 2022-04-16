@@ -2,7 +2,7 @@ from email.mime import audio
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
-import os
+import os, copy
 import tqdm
 import matplotlib.pyplot as plt
 from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
@@ -102,11 +102,11 @@ Arguments:
 - plot: Plot the training and validation curves.
 """
 def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
-    checkpoint_path=None, plot=False):
+    checkpoint_path=None, plot=False, augment_noise=True):
     print(f"Beginning training (lr={learning_rate})")
     
-    train_dataset = MapDataset(0, 0.6)
-    val_dataset = MapDataset(0.6, 0.8)
+    train_dataset = MapDataset(0, 0.8)
+    val_dataset = MapDataset(0.8, 0.9)
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
@@ -124,11 +124,19 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
             if torch.cuda.is_available():
                 audio_data = audio_data.cuda()
                 notes_data = notes_data.cuda()
+                
             optimizer.zero_grad()
             bar_len = timing_data["bar_len"].item()
             offset = timing_data["offset"].item()
             audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, hyper_param.window_size)
             audio_windows = torch.flatten(audio_windows, start_dim=1)
+            if augment_noise:
+                if torch.cuda.is_available():
+                    noise = torch.normal(mean=0, std=torch.arange(0.001,0.002).to(device=torch.device("cuda"))*
+                                         torch.ones(audio_windows.size()).to(device=torch.device("cuda")))
+                else:
+                    noise = torch.normal(mean=0, std=torch.arange(0.001,0.002)*torch.ones(audio_windows.size()))
+                audio_windows += noise
             model_out = model_compute(model, audio_windows, notes_data)
             notes_data = torch.squeeze(notes_data, dim=0)
             model_loss = criterion(model_out, notes_data)
@@ -140,7 +148,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
         train_losses.append(train_loss)
             
         # validation loss
-        if (epoch_num % 100 == 0):
+        if (epoch_num % 10 == 0):
             model.eval()
             val_loss = []
             with torch.no_grad(): # disable gradient computation to save memory
@@ -162,13 +170,13 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
             val_iters.append(epoch_num)
 
             print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
-                  f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}" + 
-                  f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
+                    f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}" + 
+                    f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
         else:
             print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
                   f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}")
     
-        if checkpoint_path and (epoch_num % 100) == 0:
+        if checkpoint_path and (epoch_num % 5) == 0:
             torch.save(model.state_dict(), checkpoint_path.format(epoch_num,learning_rate))
     
     if plot:
@@ -183,10 +191,10 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
 
 if __name__ == "__main__":
     model = notePresenceRNN()
+    model.load_state_dict(torch.load("C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-working-best-trywd-0.00001-epoch-325-lr-1e-05.pk"))
     if torch.cuda.is_available():
         model = model.cuda()
-    train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-3, num_epochs=5, wd=0, checkpoint_path=None, plot=True)
-    # model = noteColourRNN()
-    # if torch.cuda.is_available():
-    #     model = model.cuda()
-    # train_rnn_network(model, model_compute_note_colour, note_colour_loss, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+    
+    train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1001, wd=0.00001, 
+                      checkpoint_path= "C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-working-best-trywd-0.00001-with-noise-epoch-{}-lr-{}.pk", plot=True, augment_noise=True)
+    
