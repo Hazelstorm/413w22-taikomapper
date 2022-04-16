@@ -180,6 +180,7 @@ Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Helped write some of the helper functions in ```helper.py```.
 - Helped David with postprocessing.py
 - Trained the ```notePresenceRNN``` and ```noteFinisherRNN``` models on her computer (RTX 3080 Ti).
+- Produced most of the training curves
 
 Paul Zhang ([@sjorv](https://github.com/sjorv)): 
 - Created the RNN models.
