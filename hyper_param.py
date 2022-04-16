@@ -16,7 +16,6 @@ power_spectrogram = 2
 # Audio Preprocessing
 snap = 4
 window_size = 32
-max_ms = 180000 # 3 minutes
 
 # Model parameters
 notePresenceRNN_embedding_size = 256
