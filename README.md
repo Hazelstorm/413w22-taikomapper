@@ -72,4 +72,14 @@ successful and unsuccessful example
 --->
 
 
-## Preprocessing
+## Data and Preprocessing
+
+### Source
+We have downloaded a dump of "ranked" *Taiko* mapsets from [this osu! forum post](https://osu.ppy.sh/community/forums/topics/330552?n=1). An uploaded *osu!* mapset can become ranked after passing a quality assurance process. We chose to only use ranked mapsets to assure data quality. 
+
+### Data Summary
+There are a total of 2795 ranked mapsets with 9113 *Taiko* difficulties. 
+<!--- total length, average length, total # snaps, average # snaps, total # notes, average # notes --->
+
+
+
