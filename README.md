@@ -35,7 +35,7 @@ Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of
 
 ## Model
 
-TaikoMapper's is constructed using three seq2seq models, all having a bidirectional GRU, that feed into each other. The three seq2seq models are:
+TaikoMapper's is constructed using three seq2seq models, all having a bidirectional GRU, that feed into each other. We've opted to use a bidirectional GRU, as in Taiko, note placement should be made accordingly with notes in the future, as well as notes from the past. The three seq2seq models are:
 - ```notePresenceRNN```, used to determine where the taiko notes are placed (ignoring note type). ```notePresenceRNN``` accepts the ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows, and outputs a sequence of ```N``` floats, with positive value indicating that a note should be placed on the respective snap. ```notePresenceRNN``` processes the spectrogram windows through a linear embedding layer, a bidirectional GRU, and then a linear layer with one output. The embeddings have size ```notePresenceRNN_embedding_size``` (found in ```hyper_params.py```), and the bidirectional GRU's two hidden units (one forward, one backward) have size ```notePresenceRNN_hidden_size```. On a single snap of input (one spectrogram window), the architecture looks like this:
 
 <p align="center">
