@@ -16,10 +16,9 @@ SEED = 88
 
 def note_presence_loss(model_output, notes_data):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
-    weight = torch.tensor([hyper_param.note_presence_weight])
     if torch.cuda.is_available():
         weight = weight.cuda()
-    bce = torch.nn.BCEWithLogitsLoss(pos_weight=weight)
+    bce = torch.nn.BCEWithLogitsLoss(pos_weight=hyper_param.note_presence_weight)
     loss = bce(model_output, nonzero_notes)
 
     return loss
@@ -44,7 +43,7 @@ def note_finisher_loss(model_output, notes_data):
     finisher_notes = torch.eq(notes_data, torch.mul(3, torch.ones_like(notes_data))) \
                     + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
     finisher_notes = finisher_notes.to(dtype=torch.float32)
-    bce = torch.nn.BCEWithLogitsLoss()
+    bce = torch.nn.BCEWithLogitsLoss(pos_weight=hyper_param.note_finisher_weight)
     loss = bce(model_output, finisher_notes)
     return loss
 

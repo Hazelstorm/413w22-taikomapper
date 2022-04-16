@@ -25,3 +25,4 @@ noteColourRNN_hidden_size = 256 # Also applies to noteFinisherRNN
 
 # Training parameters
 note_presence_weight = 8  # When computing loss for note_presence_loss, this accounts for the relative sparsity of present notes.
+note_finisher_weight = 10
