@@ -49,6 +49,7 @@ def signal_handler(sig, frame):
     loss_dump.close()
     sys.exit(0)
 
+
 def note_presence_loss(model_output, notes_data, pos_weight):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
     pos_weight = torch.tensor(pos_weight)
@@ -159,7 +160,6 @@ def train_rnn_network(model, model_compute, pos_weight_compute, criterion, num_e
     
     train_dataset = MapDataset(0, SPLIT[0])
     val_dataset = MapDataset(SPLIT[0], SPLIT[1])
-
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
@@ -245,32 +245,9 @@ if __name__ == "__main__":
     # Plot upon SIGINT..
     signal.signal(signal.SIGINT, signal_handler)
     
-    # training_losses = []
-    validation_losses = []
-    validation_iters = []
-    
     model = notePresenceRNN()
-    for i in range(0,285,5):
-        model.load_state_dict(torch.load(f"C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\old\\{i}.pk"))
-        if torch.cuda.is_available():
-            model = model.cuda()
-    
-    # train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-6, num_epochs=1001, wd=0.000001, 
-                    #   checkpoint_path= "C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-newest-trywd-0.000001-without-noise-epoch-{}-lr-{}.pk", plot=True, augment_noise=False)
-    
-        train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence,compute_pos_weight_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1, wd=0.000001, 
-                        checkpoint_path= None, plot=False, augment_noise=False)
-        
-        training_losses.append(train_losses)
-        validation_losses.append(val_losses)
-        validation_iters.append(i)
+    if torch.cuda.is_available():
+        model = model.cuda()
 
-    plt.title(f"RNN Hyperparameter Tuning")
-    plt.plot(validation_iters, training_losses, label=f"Training Loss")
-    plt.plot(validation_iters, validation_losses, label=f"Validation Loss")
-    plt.legend()
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.show()
-
-
+    train_rnn_network(model, model_compute_note_presence,compute_pos_weight_note_presence, note_presence_loss, learning_rate=1e-6, num_epochs=1001, wd=0.000001, 
+                      checkpoint_path= None, plot=True, augment_noise=False)
