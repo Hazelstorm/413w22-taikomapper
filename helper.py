@@ -121,12 +121,21 @@ def get_npy_data(path):
     return audio_data, timing_data, notes_data
 
 """
+Returns the total number of snaps with notes and the total number of snaps with no notes in a tuple.
+"""
+def get_note_ratio(notes_data): # useful for computing expected weight of loss function
+    notes = torch.sum(notes_data > 0).item()
+    total = notes_data.shape[1]
+    no_notes = total - notes
+    return notes, no_notes
+
+"""
 Returns the total number of snaps and the total number of notes in the map
 
 notes_data: numpy array of shape [1, N]
 """
-def get_inverse_note_ratio(notes_data): # useful for computing expected weight of loss function
-    notes = torch.sum(notes_data > 0).item()
+def get_finisher_ratio(notes_data):
+    finishers = torch.sum(notes_data >= 3).item()
     total = notes_data.shape[1]
-    no_notes = total - notes
-    return no_notes / notes
+    not_finishers = total - finishers
+    return finishers, not_finishers

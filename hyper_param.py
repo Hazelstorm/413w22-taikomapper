@@ -22,6 +22,3 @@ notePresenceRNN_embedding_size = 256
 notePresenceRNN_hidden_size = 256
 noteColourRNN_embedding_size = 256 # Also applies to noteFinisherRNN
 noteColourRNN_hidden_size = 256 # Also applies to noteFinisherRNN
-
-# Training parameters
-note_finisher_weight = 10
