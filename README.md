@@ -183,7 +183,7 @@ Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Produced most of the training curves
 
 Paul Zhang ([@sjorv](https://github.com/sjorv)): 
-- Created the RNN models.
+- Created the initial RNN models (originally a unidirectional GRU without embedding).
 - Wrote the training code and the loss functions.
 - Optimized preprocessing and postprocessing code. 
 - Evaluated the model qualitatively, by creating *osu!Taiko* beatmaps using the model.
