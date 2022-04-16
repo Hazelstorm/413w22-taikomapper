@@ -41,7 +41,7 @@ def dump_losses(train_losses, val_losses, val_iters):
     train_writer.writerow(train_header)
     
     for i in (train_losses):
-        train_writer = csv.writer([i])
+        train_writer.writerow([i])
     
     val_header = ['val_losses', 'val_iters']    
     val_writer = csv.writer(val_loss_dump)
