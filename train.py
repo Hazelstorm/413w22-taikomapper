@@ -182,11 +182,11 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
     return train_losses, val_losses, val_iters
 
 if __name__ == "__main__":
-    model = notePresenceRNN()
-    if torch.cuda.is_available():
-        model = model.cuda()
-    train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-3, num_epochs=5, wd=0, checkpoint_path=None, plot=True)
-    # model = noteColourRNN()
+    # model = notePresenceRNN()
     # if torch.cuda.is_available():
     #     model = model.cuda()
-    # train_rnn_network(model, model_compute_note_colour, note_colour_loss, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)
+    # train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-3, num_epochs=5, wd=0, checkpoint_path=None, plot=True)
+    model = noteColourRNN()
+    if torch.cuda.is_available():
+        model = model.cuda()
+    train_rnn_network(model, model_compute_note_colour, note_colour_loss, learning_rate=1e-4, num_epochs=1000, wd=0, checkpoint_path=None)

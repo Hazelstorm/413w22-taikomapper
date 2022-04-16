@@ -20,6 +20,6 @@ max_ms = 180000 # 3 minutes
 
 # Model parameters
 notePresenceRNN_embedding_size = 256
-notePresenceRNN_RNN_hidden_size = 256
+notePresenceRNN_hidden_size = 256
 noteColourRNN_embedding_size = 256 # Also applies to noteFinisherRNN
 noteColourRNN_hidden_size = 256 # Also applies to noteFinisherRNN
