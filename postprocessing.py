@@ -16,13 +16,11 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
     bar_len = 60000/bpm
 
     spectro = get_map_audio(audio_filepath)
-    model_output = model(torch.unsqueeze(torch.Tensor(spectro), dim=0))
-    model_output = torch.squeeze(model_output, dim=0)
-    model_output_filtered = filter_to_snaps(model_output, bar_len, offset, unsnap_tolerance=0) # probability vector
-    model_output_filtered = np.argmax(model_output_filtered.detach().numpy(), axis=1) # array of indices from 0-4
+    model_output = model(torch.unsqueeze(torch.Tensor(spectro), dim=0), bar_len, offset)
+    notes_present = model_output > 0
+    print('Total snaps: {}'.format(len(model_output)))
+
     _, audio_filename = os.path.split(audio_filepath)
-    print('Total snaps: {}'.format(len(model_output_filtered)))
-    
     # set values
     set_values([
         ('AudioFilename', '{}.mp3'.format(audio_filename)),
@@ -74,16 +72,17 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
         # HitObjects
         osu_file.write('[HitObjects]\n')
         ho_params = get_hit_objects_param()
-        for snap_num in range(len(model_output_filtered)):
-            if model_output_filtered[snap_num] == 0:
+        for snap_num in range(len(notes_present)):
+            if notes_present[snap_num] == False:
                 continue
             time_in_ms = snap_to_ms(bar_len, offset, snap_num)
-            hitsound_number = index_to_hitsound[model_output_filtered[snap_num]]
+            # hitsound_number = index_to_hitsound[model_output_filtered[snap_num]]
+            hitsound_number = 0
             osu_file.write('{},{},{},{},{},{}\n'.format(
                 ho_params[0], ho_params[1], time_in_ms, ho_params[2], hitsound_number, ho_params[3]))
 
 import torch
-from rnn import taikoRNN
-model = taikoRNN()
-model.load_state_dict(torch.load('ckpt-29900-0.001.pk', map_location=torch.device('cpu')))
-create_osu_file(model, "Scott Pilgrim Anthem.mp3", "test.osu", 225, 342, "Scott Pilgrim Anthem")
+from rnn import notePresenceRNN
+model = notePresenceRNN()
+model.load_state_dict(torch.load('ckpt-18200-lr-0.001.pk', map_location=torch.device('cpu')))
+create_osu_file(model, "Vajuranda.mp3", "test.osu", 190, 1273, "Vajuranda")
