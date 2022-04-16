@@ -93,7 +93,6 @@ class MapDataset(Dataset):
         return audio_data, timing_data, notes_data
 
 
-
 note_presence_weight = 5 
 note_finisher_weight = 50
 
@@ -172,10 +171,10 @@ Trains the RNN.
 Arguments:
 - checkpoint_path: path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
 - plot: Plot the training and validation curves.
-- augment_noise: Setting this to True will add noise to the audio spectrograms during training time.
+- augment_noise: Determines how much noise is added to each audio spectrogram. Setting this to None prevents adding noise.
 """
 def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
-    checkpoint_path=None, plot=False, augment_noise=True):
+    checkpoint_path=None, plot=False, augment_noise=None):
     print(f"Beginning training (lr={learning_rate})")
     
     global train_losses
@@ -210,10 +209,10 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
             audio_windows = torch.flatten(audio_windows, start_dim=1)
             if augment_noise:
                 if torch.cuda.is_available():
-                    noise = torch.normal(mean=0, std=torch.arange(0.001,0.002).to(device=torch.device("cuda"))*
+                    noise = torch.normal(mean=0, std=torch.arange(augment_noise/2,augment_noise).to(device=torch.device("cuda"))*
                                          torch.ones(audio_windows.size()).to(device=torch.device("cuda")))
                 else:
-                    noise = torch.normal(mean=0, std=torch.arange(0.001,0.002)*torch.ones(audio_windows.size()))
+                    noise = torch.normal(mean=0, std=torch.arange(augment_noise/2,augment_noise)*torch.ones(audio_windows.size()))
                 audio_windows += noise
             model_out = model_compute(model, audio_windows, notes_data)
             notes_data = torch.squeeze(notes_data, dim=0)
