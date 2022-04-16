@@ -16,7 +16,7 @@ SEED = 88
 
 def note_presence_loss(model_output, notes_data):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
-    weight = torch.tensor([8])
+    weight = torch.tensor([hyper_param.note_presence_weight])
     if torch.cuda.is_available():
         weight = weight.cuda()
     bce = torch.nn.BCEWithLogitsLoss(pos_weight=weight)
