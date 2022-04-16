@@ -21,7 +21,7 @@ val_iters = []
 loss_dump = open('losses.csv','w', encoding='utf8')
 
 SEED = 88
-SPLIT = [0.8, 0.9] # where to split the training set into train:valid:test
+SPLIT = [0.8, 0.9] # where to split the training set into train:valid:tes
 
 
 def plot(train_losses, val_losses, val_iters):
@@ -49,8 +49,42 @@ def signal_handler(sig, frame):
     loss_dump.close()
     sys.exit(0)
 
+note_presence_weight = 5 
+note_finisher_weight = 50
 
-def note_presence_loss(model_output, notes_data, pos_weight):
+"""
+Compute the average ratio of present notes to non-present notes on snaps, and update
+note_presence_weight accordingly.
+"""
+def compute_note_presence_weight():
+    train_dataset = MapDataset(0, SPLIT[0])
+    train_loader = DataLoader(train_dataset)
+    total_notes = 0
+    total_no_notes = 0
+    for _, _, notes_data in train_loader:
+        notes, no_notes = helper.get_note_ratio(notes_data)
+        total_notes += notes
+        total_no_notes += no_notes
+    global note_presence_weight
+    note_presence_weight = total_no_notes / total_notes
+
+"""
+Compute the average ratio of finisher notes to non-finisher notes, and update
+note_finisher_weight accordingly.
+"""
+def compute_note_finisher_weight():
+    train_dataset = MapDataset(0, SPLIT[0])
+    train_loader = DataLoader(train_dataset)
+    total_finishers = 0
+    total_not_finishers = 0
+    for _, _, notes_data in train_loader:
+        finishers, not_finishers = helper.get_finisher_ratio(notes_data)
+        total_finishers += finishers
+        total_not_finishers += not_finishers
+    global note_finisher_weight
+    note_finisher_weight = total_not_finishers / total_finishers
+
+def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
     pos_weight = torch.tensor(pos_weight)
     if torch.cuda.is_available():
@@ -73,13 +107,16 @@ def note_colour_loss(model_output, notes_data):
     loss = bce(model_output, kat_notes)
     return loss
 
-def note_finisher_loss(model_output, notes_data):
+def note_finisher_loss(model_output, notes_data, pos_weight=note_finisher_weight):
     nonzero_entries = notes_data > 0
     notes_data = notes_data[nonzero_entries]
     model_output = model_output[nonzero_entries]
     finisher_notes = torch.eq(notes_data, torch.mul(3, torch.ones_like(notes_data))) \
                     + torch.eq(notes_data, torch.mul(4, torch.ones_like(notes_data)))
     finisher_notes = finisher_notes.to(dtype=torch.float32)
+    pos_weight = torch.tensor(pos_weight)
+    if torch.cuda.is_available():
+        pos_weight = pos_weight.cuda()
     bce = torch.nn.BCEWithLogitsLoss(pos_weight=hyper_param.note_finisher_weight)
     loss = bce(model_output, finisher_notes)
     return loss
@@ -92,14 +129,6 @@ def model_compute_note_colour(model: noteColourRNN, audio_windows, notes_data):
 
 def model_compute_note_finisher(model: noteFinisherRNN, audio_windows, notes_data):
     return model(audio_windows, notes_data)
-
-def compute_pos_weight_note_presence():
-    train_dataset = MapDataset(0, SPLIT[0])
-    train_loader = DataLoader(train_dataset)
-    ratio = 0
-    for _, _, notes_data in train_loader:
-        ratio += helper.get_inverse_note_ratio(notes_data)
-    return ratio / len(train_loader)
 
 TRAIN_PATH = os.path.join("data", "npy", "futsuu")
 
@@ -145,7 +174,7 @@ Arguments:
 - checkpoint_path: path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
 - plot: Plot the training and validation curves.
 """
-def train_rnn_network(model, model_compute, pos_weight_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
+def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
     checkpoint_path=None, plot=False, augment_noise=True):
     print(f"Beginning training (lr={learning_rate})")
     
@@ -163,8 +192,6 @@ def train_rnn_network(model, model_compute, pos_weight_compute, criterion, num_e
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
-    
-    pos_weight = pos_weight_compute()
 
     # training loop
     for epoch_num in range(num_epochs):
@@ -190,7 +217,7 @@ def train_rnn_network(model, model_compute, pos_weight_compute, criterion, num_e
                 audio_windows += noise
             model_out = model_compute(model, audio_windows, notes_data)
             notes_data = torch.squeeze(notes_data, dim=0)
-            model_loss = criterion(model_out, notes_data, pos_weight)
+            model_loss = criterion(model_out, notes_data)
             model_loss.backward()
             optimizer.step()
             train_loss.append(model_loss.item())
@@ -214,7 +241,7 @@ def train_rnn_network(model, model_compute, pos_weight_compute, criterion, num_e
                     model_out = model_compute(model, audio_windows, notes_data)
                     model_out = torch.squeeze(model_out, dim=0)
                     notes_data = torch.squeeze(notes_data, dim=0)
-                    model_loss = criterion(model_out, notes_data, pos_weight)
+                    model_loss = criterion(model_out, notes_data)
                     val_loss.append(model_loss.item())
             val_loss = sum(val_loss) / len(val_loss)
             val_losses.append(val_loss)
@@ -245,9 +272,13 @@ if __name__ == "__main__":
     # Plot upon SIGINT..
     signal.signal(signal.SIGINT, signal_handler)
     
+    compute_note_presence_weight()
+    compute_note_finisher_weight()
     model = notePresenceRNN()
+    
     if torch.cuda.is_available():
         model = model.cuda()
-
-    train_rnn_network(model, model_compute_note_presence,compute_pos_weight_note_presence, note_presence_loss, learning_rate=1e-6, num_epochs=1001, wd=0.000001, 
-                      checkpoint_path= None, plot=True, augment_noise=False)
+    
+    train_losses, val_losses, val_iters = train_rnn_network(model, model_compute_note_presence, note_presence_loss, learning_rate=1e-5, num_epochs=1001, wd=0.00001, 
+                      checkpoint_path= None, plot=True, augment_noise=True)
+    

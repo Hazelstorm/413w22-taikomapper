@@ -1,4 +1,5 @@
 # TaikoMapper
+An *osu!Taiko* Map Generator. Created as a final project for CSC413H5 Winter 2022 at the University of Toronto Mississauga.
 
 *Dependencies*: Python 3.8, librosa, ffmpeg, pydub, PyTorch
 
@@ -110,7 +111,7 @@ Our TaikoMapper model has the following hyperparameters:
 - ```n_mels```, ```window_size```, ```fmin```, ```fmax```: These hyperparameters determine the information stored in the spectrogram windows.
 
 In addition, the training loop has the following hyperparameters:
-- ```note_presence_weight``` (in ```hyper_params.py```): In a typical Taiko map, most snaps do not have notes. ```note_presence_weight``` is used to compensate for this note sparsity by emphasizing on present notes when computing loss for ```notePresenceRNN```.
+- ```note_presence_weight``` and ```note_finisher_weight``` (in ```train.py```): In a typical Taiko map, most snaps do not have notes. ```note_presence_weight``` is used to compensate for this note sparsity by emphasizing on present notes when computing loss for ```notePresenceRNN```. Similarly, very few notes are finishers, so ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```.
 - ```learning_rate```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
 
 ### Tuning
@@ -129,13 +130,13 @@ Originally, we started with a hidden size of 20. However, once we've tried incre
 
 Unfortunately, due to time constraints, we do not have any formal grid searching tests on the hidden sizes or embedding sizes. As well, since preprocessing the whole dataset takes a long time (a few hours), we were unable to test the effect of ```n_mels```, ```fmin```, and ```fmax``` on the training curve. For ```fmin``` and ```fmax``` we instead just used heuristics in setting the values to ```fmin = 20, fmax = 5000````, since most musical elements appear in this frequency range.
 
-We've found that increasing ```note_presence_weight``` to 50 causes "note spam" for the first few hundred iterations, where ```notePresenceRNN``` assigns a note to almost every snap. On the other hand, setting ```note_presence_weight = 1``` caused only a handful of notes to appear in each map; ```note_presence_weight = 3``` still had sparse note density. Thus, we've opted for ```note_presence_weight = 8```. 
+We've automatically computed ```note_presence_weight``` and ```note_finisher_weight``` in ```train.py``` (using the functions ```compute_note_presence_weight``` and ```compute_note_finisher_weight```), by finding the ratio of snaps with notes versus snaps without notes, and the ratio of finishers to non-finishers.
 
 ## Results
 
 
 ## Ethical Considerations
-This project, with some further training, could be easily made into a user-friendly "Taiko Map Generator", for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
+This project, with some further training, could be easily made into a more user-friendly Taiko Map Generator for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
 
 The most immediate ethical issue regarding this project concerns music licensing, especially with regards to the mapsets used for model training. As *osu!* mapsets are user-uploaded, they may contain copyrighted music. Although *osu!* [encourages its users to obtain music licensing permission before uploading mapsets](https://osu.ppy.sh/legal/en/Music_licensing), sometimes copyrighted music is still used in mapsets. There have been [instances](https://gist.github.com/peppy/99e6959772083cdfde8a) of offending material being removed from the *osu!* website due to copyright issues.
 
