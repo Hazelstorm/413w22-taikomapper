@@ -4,9 +4,7 @@ from torch.nn.functional import pad
 import numpy as np
 import json
 import matplotlib.pyplot as plt
-from hyper_param import *
-
-SNAP = get_snap() # Number of snaps in one bar
+import hyper_param
 
 """
 Converts <snap_num> to time in ms.
@@ -18,7 +16,7 @@ Parameters:
 For example, if the song is at 200BPM and has offset 1000ms, bar_len is 300ms. 
 If there are 4 snaps in one bar, snap #5 would occur at time 1375ms.
 """
-def snap_to_ms(bar_len, offset, snap_num, snap_val=SNAP):
+def snap_to_ms(bar_len, offset, snap_num, snap_val=hyper_param.snap):
     ms = offset + (snap_num * bar_len / snap_val)
     return np.floor(ms).astype(int)
 
@@ -30,7 +28,7 @@ Parameters:
 - ms: the total length of the song in ms.
 - snap_val: number of snaps in one bar.
 """
-def get_num_snaps(bar_len, offset, ms, snap_val=SNAP):
+def get_num_snaps(bar_len, offset, ms, snap_val=hyper_param.snap):
     snap_num = (ms - offset) * snap_val / bar_len # inverse function of snap_to_ms
     snap_num = np.ceil(snap_num).astype(int)
     if snap_to_ms(bar_len, offset, snap_num) >= ms: # we may have predicted a value too high due to rounding error
@@ -76,10 +74,10 @@ Parameters:
 - bar_len: length of one bar (measure), in ms. Calculated as 60000/BPM.
 - offset: the offset of snap #0 in ms, usually corresponding to the song's first beat.
 """
-def ms_to_snap(bar_len, offset, ms, snap_val=SNAP):
+def ms_to_snap(bar_len, offset, ms, snap_val=hyper_param.snap):
     snap_num = (ms - offset) / (bar_len / snap_val)
     error = abs(snap_num - round(snap_num))
-    if error < 0.02 * SNAP:
+    if error < 0.02 * hyper_param.snap:
         return round(snap_num)
 
 """
@@ -99,7 +97,7 @@ def get_audio_around_snaps(spectro, bar_len, offset, win_size):
     num_snaps = get_num_snaps(bar_len, offset, spectro.shape[0])
     indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
     
-    audio_windows = torch.zeros([num_snaps, 0, n_mels]) # [indices, win_length, 40]
+    audio_windows = torch.zeros([num_snaps, 0, hyper_param.n_mels]) # [indices, win_length, 40]
     if torch.cuda.is_available():
         audio_windows = audio_windows.cuda()
     

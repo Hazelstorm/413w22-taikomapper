@@ -105,8 +105,8 @@ The mp3 is sampled in a window of size 2 * WINDOW_SIZE around each snap.
 convert=True converts mp3 files into wav before processing, as librosa doesn't
 handle mp3 efficiently.
 """
-def get_map_audio(filepath, convert=True, kwargs=hyper_param.get_mel_param()): 
-    sr = kwargs['sr']
+def get_map_audio(filepath, convert=True): 
+    sr = hyper_param.sr
     try: 
         if convert and filepath.endswith(".mp3"):
             wav = AudioSegment.from_mp3(filepath)
@@ -121,13 +121,13 @@ def get_map_audio(filepath, convert=True, kwargs=hyper_param.get_mel_param()):
         exit()
 
     # Get hyperparam for mp3 to spectrogram
-    hop_length = kwargs['hop_length']
-    win_length = kwargs['win_length']
-    n_fft = kwargs['n_fft']
-    n_mels = kwargs['n_mels']
-    pwr_spect = kwargs['power_spectrogram']
-    fmin = kwargs['fmin']
-    fmax = kwargs['fmax']
+    hop_length = hyper_param.hop_length
+    win_length = hyper_param.win_length
+    n_fft = hyper_param.n_fft
+    n_mels = hyper_param.n_mels
+    pwr_spect = hyper_param.power_spectrogram
+    fmin = hyper_param.fmin
+    fmax = hyper_param.fmax
 
     D = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
                             win_length=win_length)) ** pwr_spect
