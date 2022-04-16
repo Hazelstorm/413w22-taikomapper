@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 import hyper_param
-from helper import filter_to_snaps
 
 WINDOW_LENGTH = 2 * hyper_param.window_size + 1
 
