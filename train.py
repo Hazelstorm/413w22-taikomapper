@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 import os, copy
 import tqdm
 import matplotlib.pyplot as plt
-from rnn import notePresenceRNN, notePresenceBidirectionalRNN, noteColourRNN, noteFinisherRNN
+from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
 import random
 import helper
 import hyper_param
@@ -279,7 +279,7 @@ if __name__ == "__main__":
 
 
     # Train notePresenceRNN
-    # presence_model = notePresenceBidirectionalRNN()
+    # presence_model = notePresenceRNN()
     # if torch.cuda.is_available():
     #     presence_model = presence_model.cuda()
     # # presence_model.load_state_dict(torch.load("..."))

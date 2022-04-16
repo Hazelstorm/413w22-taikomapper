@@ -12,26 +12,6 @@ class notePresenceRNN(nn.Module):
         self.emb_size = emb_size
         self.hidden_size = hidden_size
         self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH, self.emb_size)
-        self.rnn = nn.GRU(input_size=emb_size, hidden_size=self.hidden_size)
-        self.fc = nn.Linear(self.hidden_size, 1)
-    
-    def forward(self, audio_windows):
-        audio_windows = torch.unsqueeze(audio_windows, dim=0)
-        out = self.embedding(audio_windows)
-        out, _ = self.rnn(out)
-        out = self.fc(out)
-        out = torch.squeeze(out, dim=2)
-        out = torch.squeeze(out, dim=0)
-        return out
-
-# Modified from RNN notebook
-class notePresenceBidirectionalRNN(nn.Module):
-    def __init__(self, emb_size=hyper_param.notePresenceRNN_embedding_size, 
-            hidden_size=hyper_param.notePresenceRNN_hidden_size):
-        super().__init__()
-        self.emb_size = emb_size
-        self.hidden_size = hidden_size
-        self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH, self.emb_size)
         self.rnn = nn.GRU(input_size=emb_size, hidden_size=self.hidden_size, bidirectional=True)
         self.fc = nn.Linear(self.hidden_size * 2, 1)
     
