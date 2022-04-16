@@ -100,6 +100,7 @@ def get_audio_around_snaps(spectro, bar_len, offset, win_size):
     audio_windows = torch.zeros([num_snaps, 0, hyper_param.n_mels]) # [indices, win_length, 40]
     if torch.cuda.is_available():
         audio_windows = audio_windows.cuda()
+        padded_spectro = padded_spectro.cuda()
     
     for i in range(win_length):
         audio_slices = padded_spectro[indices + i, :]
@@ -118,3 +119,14 @@ def get_npy_data(path):
     with open(os.path.join(path, "timing_data.json")) as file:
         timing_data = json.load(file)
     return audio_data, timing_data, notes_data
+
+"""
+Returns the total number of snaps and the total number of notes in the map
+
+notes_data: numpy array of shape [1, N]
+"""
+def get_inverse_note_ratio(notes_data): # useful for computing expected weight of loss function
+    notes = torch.sum(notes_data > 0).item()
+    total = notes_data.shape[1]
+    no_notes = total - notes
+    return no_notes / notes

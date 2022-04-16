@@ -1,8 +1,8 @@
-import numpy as np
 import os
 from postprocessing_helpers import *
 from preprocessing_helpers import get_map_audio
-from helper import snap_to_ms, filter_to_snaps
+from helper import snap_to_ms, get_audio_around_snaps
+import hyper_param
 
 index_to_hitsound = { \
   1: 0, # don
@@ -16,7 +16,10 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
     bar_len = 60000/bpm
 
     spectro = get_map_audio(audio_filepath)
-    model_output = model(torch.unsqueeze(torch.Tensor(spectro), dim=0), bar_len, offset)
+    spectro = torch.tensor(spectro)
+    audio_windows = get_audio_around_snaps(spectro, bar_len, offset, hyper_param.window_size)
+    audio_windows = torch.flatten(audio_windows, start_dim=1)
+    model_output = model(audio_windows)
     notes_present = model_output > 0
     print('Total snaps: {}'.format(len(model_output)))
 
@@ -66,7 +69,7 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
         osu_file.write('[TimingPoints]\n')
         tp_params = get_timing_point_param()
         osu_file.write('{},{},{},{},{},{},{},{}\n'.format(
-            tp_params[0], tp_params[1], tp_params[2], tp_params[3], tp_params[4], tp_params[5], tp_params[6], tp_params[7]))
+            offset, bar_len, tp_params[2], tp_params[3], tp_params[4], tp_params[5], tp_params[6], tp_params[7]))
         osu_file.write('\n')
 
         # HitObjects
@@ -83,6 +86,6 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
 
 import torch
 from rnn import notePresenceRNN
-model = notePresenceRNN()
-model.load_state_dict(torch.load('ckpt-18200-lr-0.001.pk', map_location=torch.device('cpu')))
-create_osu_file(model, "Vajuranda.mp3", "test.osu", 190, 1273, "Vajuranda")
+model = notePresenceRNN().cuda()
+model.load_state_dict(torch.load('ckpt-working-best-trywd-0.00001-with-noise-epoch-220-lr-1e-05.pk'))
+create_osu_file(model, "audio", "test.osu", 190, 1244, "Vajuranda")
