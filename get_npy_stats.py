@@ -4,7 +4,7 @@ import numpy as np
 
 
 dir_path = os.path.join("data", "npy")
-difficulties = ["futsuu"]
+difficulties = ["kantan", "futsuu", "muzukashii", "oni"]
 
 
 """
@@ -41,8 +41,7 @@ def get_counts(dir_path):
             "Total notes": 0,
         }
         diff_dir_path = os.path.join(dir_path, diff)
-        os.chdir(diff_dir_path)
-        subdirs = [d for d in os.listdir('.') if os.path.isdir(d)]
+        subdirs = [d for d in os.listdir(diff_dir_path) if os.path.isdir(os.path.join(diff_dir_path, d))]
         for song in subdirs:
             song_dir_path = os.path.join(diff_dir_path, song)
             song_len, num_snaps, num_notes = count_snaps_notes(song_dir_path)
