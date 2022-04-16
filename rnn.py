@@ -7,7 +7,8 @@ WINDOW_LENGTH = 2 * hyper_param.window_size + 1
 
 # Modified from RNN notebook
 class notePresenceRNN(nn.Module):
-    def __init__(self, emb_size=256, hidden_size=256):
+    def __init__(self, emb_size=hyper_param.notePresenceRNN_embedding_size, 
+            hidden_size=hyper_param.notePresenceRNN_RNN_hidden_size):
         super().__init__()
         self.hidden_size = hidden_size
         self.emb_size = emb_size
@@ -25,7 +26,8 @@ class notePresenceRNN(nn.Module):
         return out
 
 class noteColourRNN(nn.Module):
-    def __init__(self, hidden_size=50):
+    def __init__(self, emb_size=hyper_param.noteColourRNN_embedding_size, 
+            hidden_size=hyper_param.noteColourRNN_hidden_size):
         super().__init__()
         self.hidden_size = hidden_size
         self.rnn = nn.GRU(input_size=(hyper_param.n_mels*WINDOW_LENGTH + 1), hidden_size=self.hidden_size)
