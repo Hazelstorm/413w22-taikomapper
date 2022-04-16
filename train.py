@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 import os, copy
 import tqdm
 import matplotlib.pyplot as plt
-from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
+from rnn import notePresenceRNN, notePresenceBidirectionalRNN, noteColourRNN, noteFinisherRNN
 import random
 import helper
 import hyper_param
@@ -54,7 +54,8 @@ def signal_handler(sig, frame):
     global train_losses, val_losses, val_iters
     plot(train_losses, val_losses, val_iters)
     dump_losses(train_losses, val_losses, val_iters)
-    loss_dump.close()
+    train_loss_dump.close()
+    val_loss_dump.close()
     sys.exit(0)
 
 note_presence_weight = 5 
@@ -277,14 +278,15 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
 
 if __name__ == "__main__":
     
-    
-    
     # Plot upon SIGINT..
     signal.signal(signal.SIGINT, signal_handler)
     
+    print("Computing note presence weight...")
     compute_note_presence_weight()
+    print("Computing note finisher weight...")
     compute_note_finisher_weight()
-    model = notePresenceRNN()
+    model = notePresenceBidirectionalRNN()
+    #model.load_state_dict(torch.load("C:\\Users\\Natal\\413w22-taikomapper\\checkpoints\\ckpt-working-best-trywd-0.00001-epoch-325-lr-1e-05.pk"))
     
     if torch.cuda.is_available():
         model = model.cuda()
