@@ -69,7 +69,7 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
         osu_file.write('[TimingPoints]\n')
         tp_params = get_timing_point_param()
         osu_file.write('{},{},{},{},{},{},{},{}\n'.format(
-            tp_params[0], tp_params[1], tp_params[2], tp_params[3], tp_params[4], tp_params[5], tp_params[6], tp_params[7]))
+            offset, bar_len, tp_params[2], tp_params[3], tp_params[4], tp_params[5], tp_params[6], tp_params[7]))
         osu_file.write('\n')
 
         # HitObjects
@@ -86,6 +86,6 @@ def create_osu_file(model, audio_filepath, osu_filename, bpm, offset, title=""):
 
 import torch
 from rnn import notePresenceRNN
-model = notePresenceRNN()
-model.load_state_dict(torch.load('ckpt-working-best-trywd-0.00001-with-noise-epoch-220-lr-1e-05.pk', map_location=torch.device('cpu')))
-create_osu_file(model, "Pure Ruby.mp3", "test.osu", 178, 580, "Pure Ruby")
+model = notePresenceRNN().cuda()
+model.load_state_dict(torch.load('ckpt-working-best-trywd-0.00001-with-noise-epoch-220-lr-1e-05.pk'))
+create_osu_file(model, "audio", "test.osu", 190, 1244, "Vajuranda")
