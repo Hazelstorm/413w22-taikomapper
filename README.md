@@ -154,7 +154,7 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 |![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
-```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. However, ```lr=1e-5``` seems to overfit rather quickly. Thus, we've decided to train ```noteColourRNN``` using ```lr=1e-5``` until the validation loss starts going up, and then switch to ```lr=1e-6```.
+```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. However, ```lr=1e-5``` seems to overfit rather quickly. Thus, we've decided to train ```noteColourRNN``` using ```lr=1e-5``` until the validation loss starts going up, and then switch to ```lr=1e-6```. Weight decay didn't seem to affect the validation loss, while adding weight decay made the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```noteColourRNN```; we use ```wd=0```. Setting ```augment_noise=5``` again makes training loss descend more slowly, but ```augment_noise=5``` (compared to less ```augment_noise```) seemed to very slightly decrease validation loss, so we use ```augment_noise=5```.
 
 Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. We just went with 
 
