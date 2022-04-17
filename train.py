@@ -56,7 +56,7 @@ def dump_losses(train_losses, val_losses, val_iters, graph_name):
 def signal_handler(sig, frame):
     global train_losses, val_losses, val_iters
     plot(train_losses, val_losses, val_iters)
-    dump_losses(train_losses, val_losses, val_iters)
+    dump_losses(train_losses, val_losses, val_iters, None)
     train_loss_dump.close()
     val_loss_dump.close()
     sys.exit(0)
@@ -298,7 +298,9 @@ if __name__ == "__main__":
             for augment_noise in [None, 0.05, 0.5, 5]:
                 model_cop = copy.deepcopy(presence_model)
                 model_cop.rnn.flatten_parameters()
-                train_losses, val_losses, val_iters = train_rnn_network(model_cop, model_compute_note_presence, note_presence_loss, learning_rate=lr, num_epochs=1, wd=wd, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}-lr={}-wd={},var={}.pt".format("{}","{}",wd,augment_noise), plot=True, augment_noise=augment_noise)
+                train_losses, val_losses, val_iters = train_rnn_network(model_cop, model_compute_note_presence, note_presence_loss, 
+                                                                        learning_rate=lr, num_epochs=1, wd=wd, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}-lr={}-wd={},var={}.pt".format("{}","{}",wd,augment_noise),
+                                                                        plot=True, augment_noise=augment_noise)
                 plt.plot(train_losses, label=f"Training Loss (lr={lr}, wd={wd}, noise={augment_noise})")
                 plt.plot(val_iters, val_losses, label=f"Validation Loss (lr={lr}, wd={wd}, noise={augment_noise})")
                 
