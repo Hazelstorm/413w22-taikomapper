@@ -18,8 +18,8 @@ train_losses = []
 val_losses = []
 val_iters = []
 
-train_loss_dump = open('losses.csv','w', encoding='utf8')
-val_loss_dump = open('validation.csv','w', encoding='utf8')
+train_loss_dump = open('losses.csv','a', encoding='utf8')
+val_loss_dump = open('validation.csv','a', encoding='utf8')
 
 SEED = 88 # Random seed used during training time to shuffle dataset
 
@@ -34,16 +34,18 @@ def plot(train_losses, val_losses, val_iters):
     plt.show()
 
 """Outputs the losses into a csv file."""
-def dump_losses(train_losses, val_losses, val_iters):
+def dump_losses(train_losses, val_losses, val_iters, graph_name):
     global train_loss_dump, val_loss_dump
-    train_header = ['training losses']
+    
+    train_header = ['training losses', graph_name]
     train_writer = csv.writer(train_loss_dump)
     train_writer.writerow(train_header)
     
     for i in (train_losses):
         train_writer.writerow([i])
     
-    val_header = ['val_losses', 'val_iters']    
+    
+    val_header = ['val_losses', 'val_iters', graph_name]    
     val_writer = csv.writer(val_loss_dump)
     val_writer.writerow(val_header)
     
@@ -72,7 +74,7 @@ def model_compute_note_finisher(model: noteFinisherRNN, audio_windows, notes_dat
 
 # Data Loader
 TRAIN_PATH = os.path.join("data", "npy", "kantan")
-SPLIT = [0.8, 0.9] # where to split the training set into train:valid:tes
+SPLIT = [0.15, 0.175] # where to split the training set into train:valid:tes
 
 class MapDataset(Dataset): 
     def __init__(self, start, stop):
@@ -224,7 +226,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
         train_losses.append(train_loss)
             
         # validation loss
-        if (epoch_num % 10 == 0):
+        if (epoch_num % 1 == 0):
             model.eval()
             val_loss = []
             with torch.no_grad(): # disable gradient computation to save memory
@@ -256,6 +258,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
             torch.save(model.state_dict(), checkpoint_path.format(epoch_num,learning_rate))
     
     if plot:
+        plt.title("RNN Tuning - lr={}, wd={}, noise={}".format(learning_rate, wd, augment_noise))
         plt.plot(train_losses, label=f"Training Loss")
         plt.plot(val_iters, val_losses, label=f"Validation Loss")
         plt.legend()
@@ -277,14 +280,35 @@ if __name__ == "__main__":
 
 
     # Train notePresenceRNN
+    # presence_model = notePresenceRNN()
+    # if torch.cuda.is_available():
+    #     presence_model = presence_model.cuda()
+    # # presence_model.load_state_dict(torch.load("..."))
+    # train_losses, val_losses, val_iters = train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
+    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
+    #     plot=True, augment_noise=5)
+    # dump_losses(train_losses, val_losses, val_iters)
+    
     presence_model = notePresenceRNN()
     if torch.cuda.is_available():
         presence_model = presence_model.cuda()
-    # presence_model.load_state_dict(torch.load("..."))
-    train_losses, val_losses, val_iters = train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
-        learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
-        plot=True, augment_noise=5)
-    dump_losses(train_losses, val_losses, val_iters)
+
+    for lr in [1e-4,1e-5,1e-6]:
+        for wd in [1e-2, 1e-4, 0]:
+            for augment_noise in [None, 0.05, 0.5, 5]:
+                model_cop = copy.deepcopy(presence_model)
+                model_cop.rnn.flatten_parameters()
+                train_losses, val_losses, val_iters = train_rnn_network(model_cop, model_compute_note_presence, note_presence_loss, learning_rate=lr, num_epochs=1, wd=wd, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}-lr={}-wd={},var={}.pt".format("{}","{}",wd,augment_noise), plot=True, augment_noise=augment_noise)
+                plt.plot(train_losses, label=f"Training Loss (lr={lr}, wd={wd}, noise={augment_noise})")
+                plt.plot(val_iters, val_losses, label=f"Validation Loss (lr={lr}, wd={wd}, noise={augment_noise})")
+                
+                dump_losses(train_losses, val_losses, val_iters, f"lr={lr}, wd={wd}, noise={augment_noise}")
+                
+    plt.title(f"notePresenceBidirectionalRNN Hyperparameter Tuning")
+    plt.legend()
+    plt.xlabel("Iteration")
+    plt.ylabel("BCE Loss")
+    
     
     # Train noteColourRNN
     # colour_model = noteColourRNN()
