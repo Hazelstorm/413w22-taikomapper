@@ -24,13 +24,13 @@ For more detailed information on the .osu file format, refer to the [*osu!Wiki*]
 
 ### TaikoMapper
 
-TaikoMapper is a modular seq2seq model that produces *osu!Taiko* maps. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
+TaikoMapper consists of three seq2seq models that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
 
 To preprocess an audio file, we require the ```BPM``` and ```offset``` of the song (note that TaikoMapper only supports songs that don't have varying tempos). With inspiration from [*Osu! Beatmap Generator*](https://github.com/Syps/osu_beatmap_generator), the audio is first converted into a [mel spectrogram](https://en.wikipedia.org/wiki/Mel_scale) using [```librosa```](https://librosa.org/doc/latest/generated/librosa.feature.melspectrogram.html). The mel scale divides the total range of frequencies (```fmin``` and ```fmax``` in ```hyper_param.py```) into frequency bands of equal logarithmic length. The spectrogram produced by this procedure has shape ```L x n_mels```, where ```L``` is the length of the audio file (in milliseconds) and ```n_mels``` (specified in ```hyper_param.py```) is the number of frequency bands (or "mel"s) in the frequency range. 
 
 Then, we extract a time window from the spectrogram around each "snap", and place the time windows into a sequence.  A "snap" is a time point on the boundary of each 1/4 regular subdivision of a measure/bar, the length of one bar being 60000/BPM milliseconds (for example, in a 100BPM song, each bar is 600ms in length, so each snap is 150ms apart. If a bar begins at time 1000ms, the snaps occur at 1000ms, 1150ms, 1300ms, 1450ms, ...). The time window size is specified by ```window_size``` in ```hyper_params.py```; we extract ```window_size``` ms to the left and right of each snap from the spectrogram. The resulting sequence of time windows has size ```N x (2 * window_size + 1) x n_mels```, with ```N``` being the total number of snaps in the audio file. We flatten the spectrogram windows to instead have size ```N x ((2 * window_size + 1) * n_mels)```.
 
-Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows around each snap, and produces a sequence of length ```N```, with each entry being an integer from 0-4. Each entry determines the note (or the absence of a note) occurring on its respective snap, with 0, 1, 2, 3, and 4 respectively indicating no note, don, kat, don finisher, and kat finisher.
+Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows around each snap, and produces three sequences of length ```N``` (one from each of  ```notePresenceRNN```, ```noteColourRNN``` and ```noteFinisherRNN```). The first sequnece determines the presence or absence of a note occurring on the respective snap; the second sequence determines the colour of the note occurring on that snap (don or kat), if any; the third sequence determines whether the note occuring on that snap is a finisher
 
 
 ## Model
@@ -48,7 +48,7 @@ TaikoMapper's is constructed using three seq2seq models, all having a bidirectio
   <img src="/images/noteColourRNN.png" alt="noteColourRNN Architecture" width="600"/>
 </p>
 
-- ```noteFinisherRNN```, used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and ```notes_data```, and the output is a sequence of ```N``` floats, with positive value to indicate finisher.
+- ```noteFinisherRNN```, used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and ```notes_data```, and the output is a sequence of ```N``` floats, with positive value to indicate finisher. However, ```noteFinisherRNN``` is trained using a different loss function from ```noteColourRNN``` (see [Quantitative Measures](#quantitative-measures)), in order to place finishers instead of colouring.
 
 The following diagram gives an overview on how the three models are connected.
 <p align="center">
@@ -63,14 +63,21 @@ Each of the three seq2seq models can be trained separately; see ```train.py```. 
   + The GRU takes in an embedding of size ```notePresenceRNN_embedding_size```, and outputs two hidden units of size ```notePresenceRNN_hidden_size```. Each bidirectional GRU has six weight matrices of size ```(input_size, hidden_size)```, another six weight matrices of size ```(hidden_size, hidden_size)```, and three bias vectors of size ```hidden_size```. To compute the update gate forward, for example, we need to apply one of the ```(input_size, hidden_size)``` matrices to the input, one of the ```(hidden_size, hidden_size)``` matrices to the previous hidden unit, and add one of the bias vectors. The reset gate and candidate hidden unit also both need one of each. Finally, we have a separate set of weight matrices for the backwards computation due to bidirectionality. Thus, in total, we have ```6 * input_size * hidden_size + 6 * hidden_size * hidden_size + 3 * hidden_size``` trainable parameters in the GRU, where ```input_size``` is ```notePresenceRNN_embedding_size``` and ```hidden_size``` is ```notePresenceRNN_hidden_size```.
   + The fully-connected linear layer at the end has input size ```2 * notePresenceRNN_hidden_size```, and output size 1, so there are ```2 * notePresenceRNN_hidden_size + 1``` trainable parameters.
 - ```noteColourRNN``` and ```noteFinisherRNN```
-  + The linear embedding layer takes in a spectrogram window of size ```(2 * window_size + 1) * n_mels + 1```, and embeds it into a vector of size ```noteColourRNN_embedding_size```, so there are ```((2 * window_size + 1)* n_mels + 2) * noteColourRNN_embedding_size``` trainable parameters.
+  + The linear embedding layer takes in a spectrogram window of size ```(2 * window_size + 1) * n_mels + 1``` and a note (scalar), and embeds it into a vector of size ```noteColourRNN_embedding_size```, so there are ```((2 * window_size + 1)* n_mels + 2) * noteColourRNN_embedding_size``` trainable parameters.
   + The GRU takes in an embedding of size ```noteColourRNN_embedding_size```, and outputs two hidden units of size ```noteColourRNN_hidden_size```. So the GRU has ```6 * input_size * hidden_size + 6 * hidden_size * hidden_size + 3 * hidden_size``` trainable parameters in the GRU, where ```input_size``` is ```noteColourRNN_embedding_size``` and ```hidden_size``` is ```noteColourRNN_hidden_size```..
   + The fully-connected linear layer at the end has input size ```2 * noteColourRNN_hidden_size```, and output size 1, so there are ```2 * noteColourRNN_hidden_size + 1``` trainable parameters.
 
+By default, we have set the following:
+- ```window_size=32```, ```n_mels=40```.
+- ```notePresenceRNN_embedding_size=256```, ```notePresenceRNN_hidden_size=256```.
+- ```noteColourRNN_embedding_size=256```, ```noteColourRNN_hidden_size=256```.
 
-<!---
-number of trainable parameters by default
---->
+Thus, using our computations above,
+- ```notePresenceRNN``` has ```((2 * 32 + 1) * 40 + 1) * 256 = 665856``` trainable parameters in its embedding layer,```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. In total, ```notePresenceRNN``` has 
+1,453,569 trainable parameters.
+- ```noteColourRNN``` and ```noteFinisherRNN``` both have ```((2 * 32 + 1) * 40 + 2) * 256 = 666112``` parameters in its embedding layer, ```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. ```noteColourRNN``` and ```noteFinisherRNN``` both have 1,453,825 parameters in total.
+
+Combining all three models together, we have 4,361,219 parameters. 
 
 <!---
 successful and unsuccessful example
@@ -83,13 +90,15 @@ successful and unsuccessful example
 We have downloaded a dump of "ranked" Taiko mapsets from [this osu! forum post](https://osu.ppy.sh/community/forums/topics/330552?n=1). An uploaded *osu!* mapset can become ranked after passing a quality assurance process. We chose to only use ranked mapsets from 2013-2021 to assure data quality, as older mapsets tend to have poorer quality due to the lax quality assurance criteria at the time. 
 
 ### Preprocessing
-First, create a ```data/``` directory in this repository's folder. In ```data/```, create the directories ```2013/, 2014/, 2015/, 2016/, 2017/, 2018/, 2019/, 2020/, 2021```.
+*Prerequirement: an existing osu! installation. Go to the [osu! website](https://osu.ppy.sh/home/download) to install osu!. This requires a Windows machine.*
 
-The Taiko mapset dump categorizes the mapsets by year. Each mapset is in .osz format, used for compressed *osu!* mapsets. To extract the mapsets using an already-existing installation of *osu!*, copy the .osz files into the ```osu!/Songs``` directory, and launch *osu!* (and go to the song selection screen). The extracted mapsets should be appear as folders in the ```osu!/Songs``` directory. Copy the mapset folders into ```data/20XX``` according to the mapset's year. We recommend this  process be done one year at a time.
+First, create a ```data/``` directory in this repository's folder (in the same folder as ```preprocessing.py```). In ```data/```, create the directories ```2013/, 2014/, 2015/, 2016/, 2017/, 2018/, 2019/, 2020/, 2021```.
 
-Having all the mapsets in the ```data/``` directory, we run ```preprocessing.py```. ```preprocessing.py`` performs the following:
-- ```create_path_dict()```: Create the file ```data.pkl```. For each mapset folder in ```data/```, find the audio file, and the .osu files. For any .osu file that corresponds to a Kantan, Futsuu, Muzukashii, or Oni difficulty, the .osu file's aboslute path and the audio file's absolute path is stored in ```data.pkl```.
-- ```create_data()```: Reading from ```data.pkl```, each mapset from ```data.pkl``` has its audio file converted into a mel spectrogram (not yet converted to spectrogram windows), as described in the [Introduction](#introduction) section. Each difficulty in the mapset is converted into a time series of ```N``` notes (```N``` being the number of snaps in the song), and also has its timing data (BPM, stored as ```bar_len = 60000/BPM```) and offset extracted. Both the spectrogram and notes time series are numpy arrays; these numpy arrays are dumped into the ```data/npy``` directory. The BPM and offest are stored in a json file. While processing, ```create_data()``` prints a warning and skips any map that our model cannot process (due to issues such as varying tempo or unsnapped notes). *Please note that create_data() takes a few seconds to load each audio file using librosa, and hence may take a couple hours to preprocess all mapsets.*
+The Taiko mapset dump categorizes the mapsets by year. Each mapset is in .osz format, used for compressed *osu!* mapsets. To extract the mapsets, copy the .osz files into the ```osu!/Songs``` directory (replace ```osu!/``` with where *osu!* is installed, if it's installed in a different location), and launch *osu!*. In *osu!*, go to the song selection screen by clicking the large *osu!* circle and selecting *Play -> Solo*. *osu!* will begin extracting the .osz files inside the ```Songs``` directory. Once finished, the extracted mapsets should be appear as folders in the ```osu!/Songs``` directory. Copy the mapset folders into ```data/20XX``` according to the mapset's year. We recommend this extraction process be done one year at a time, so that it is easy to sort the mapsets by year.
+
+Having all the mapsets in the ```data/``` directory, run ```preprocessing.py```. ```preprocessing.py`` performs the following:
+- ```create_path_dict()```: Create the file ```data/data.pkl```. For each mapset folder in ```data/```, find the audio file, and the .osu files. For any .osu file that corresponds to a Kantan, Futsuu, Muzukashii, or Oni difficulty, the .osu file's aboslute path and the audio file's absolute path is stored in ```data.pkl```.
+- ```create_data()```: Reading from ```data.pkl```, each mapset from ```data.pkl``` has its audio file converted into a mel spectrogram (not yet converted to spectrogram windows), as described in the [Introduction](#introduction) section. Each difficulty in the mapset is converted into a time series of ```N``` notes (```N``` being the number of snaps in the song), and also has its timing data (BPM, stored as ```bar_len = 60000/BPM```) and offset extracted. Both the spectrogram and notes time series are numpy arrays; these numpy arrays are dumped into the ```data/npy``` directory. The BPM and offset are stored in a json file. While processing, ```create_data()``` prints a warning and skips any map that our model cannot process (due to issues such as varying tempo or unsnapped notes). *Please note that create_data() takes a few seconds to load each audio file using librosa, and hence ```create_data()``` may take a couple hours to preprocess all mapsets.*
 
 The conversion from spectrogram to spectrogram windows is performed during training time, as we wanted the ability to change the hyperparameter ```window_size``` without preprocessing.
 
@@ -113,14 +122,14 @@ Here are some other per-difficulty statistics:
 * Note that many songs are counted repeatedly, once for each difficulty.
 
 ### Data Split
-We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model. Also, the validation loss was only computed every 10 epochs of training, to reduce training time. 
+We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model. Also, the validation loss is only computed every 10 epochs of training, to reduce training time. 
 
 ## Quantitative Measures
 We have defined different loss measures for the three models. 
 - For ```notePresenceRNN```, recall that its output of ```N``` floats indicate the note presence at that snap. The greater the float value, the more confidence the model has in placing a note at that snap. On the other hand, the ground truth is a sequence of ```N``` 0s or 1s, indicating whether there is actually a note at that snap in the map. Thus, we've decided to take the softmax of the model output, to convert the output sequence into a sequence of probabilities on whether there is a note at the snap. Then, we compute the binary cross-entropy loss of this probability sequence with the ground truth. These two operations are combined into a [binary cross-entropy with logits](https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html) loss. However, in a typical Taiko map, most snaps do not have notes; there are usually around 3-10 times more empty snaps than snaps with notes. ```note_presence_weight``` (computed before training) is used to compensate for this note sparsity by emphasizing on present notes when computing loss.
 - The hyperparameter ```note_presence_weight``` (in ```hyper_params.py```) is used to compensate for this note sparsity, through scaling the weight positive examples by ```note_presence_weight```.
 - For ```noteColourRNN```, its output of ```N``` floats indicate whether the note at that snap should be coloured blue. The greater the value, the more likely the note is to be blue. The ground truth is a sequence of integers from 0 to 4; recall that 0, 1, 2, 3, and 4 represent no note, don, kat, don finisher, and kat finisher respectively. If the ground truth is 2 or 4 (indicating a blue/kat note), then ```noteColourRNN``` should be penalized for predicting a red note (low value); if the ground truth is 1 or 3 (indicating a red/don note), the model should be penalized for predicting a blue note (high value). If the ground truth is 0, the model is forced to predict 0, as mentioned before. Again, we use the binary cross-entropy with logits loss here; however we filter out the sequence entries that represent no note, as we don't want to penalize the model's colour prediction when a note is not present. Using binary CE with logits, we compare this filtered output with a binary ground-truth sequence of the same length, with 0 for red and 1 for blue. This time, weighing a positive example is not necessary; the number of red and blue notes in a typical Taiko map are similar.
-- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss, and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```. However, we found that using the ratio of non-finisher to finisher notes resulted in the model predicting a finisher for every note. Instead, after trying the values ```noteFinisherRNN = 50``` and ```noteFinisherRNN = 10``` (where the problem wasn't fixed), we opted to set ```noteFinisherRNN = 5```.
+- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss (this time a positive example being 3 or 4 instead of 2 or 4), and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```. However, we found that using the ratio of non-finisher to finisher notes resulted in the model predicting a finisher for every note. Instead, after trying the values ```noteFinisherRNN = 50``` and ```noteFinisherRNN = 10``` (where the problem wasn't fixed), we opted to set ```noteFinisherRNN = 3```.
 
 
 ## Hyperparameters
@@ -129,38 +138,56 @@ Our TaikoMapper model has the following hyperparameters:
 - ```n_mels```, ```window_size```, ```fmin```, ```fmax```: These hyperparameters determine the information stored in the spectrogram windows.
 
 In addition, the training loop has the following hyperparameters:
-- ```learning_rate```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
+- ```lr```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
 - ```augment_noise```: Also found in ```train.py```, this parameter adds noise to the spectrogram windows before training the models. 
 
 ### Tuning
-To tune the learning rate, we've tried training the ```notePresenceRNN``` for 100 epochs with varying learning rates (```1e-4, 1e-5, 1e-6```). After plotting the training curves, we've decided to use a learning rate of ```1e-5``` to start out in ```notePresenceRNN```.
+To tune the hyperparameters ```lr```, ```wd```, and ```augment_noise``` for ```notePresenceRNN```, we've performed a grid search for 150 epochs with each combination of the following:
+- ```lr=1e-4```, ```lr=1e-5```, ```lr=1e-6```.
+- ```wd=0.01```, ```wd=0.0001```, ```wd=0```.
+- ```augment_noise=None```, ```augment_noise=0.05```, ```augment_noise=0.5```, ```augment_noise=5```.
 
-<p align="center">
-  <img src="/images/learning_rate_training_curves.png" alt="Learning Rate Training Curves" width="600"/>
-</p>
+However, to save time, the training and validation sets are 15% and 2.5% of the entire dataset respectively (instead of 80% and 10% when training the final model). Thus, the loss decreases less per epoch, and the model may start overfitting earlier in the grid search.
 
-However, we've reached a plateau of around 0.75 loss after around 200 iterations (with the model starting out pretrained from the learning rate search). 
-<!--- image --->
-After switching to a learning rate of ```1e-6```, the loss seemed to decrease again.
+<!--- https://stackoverflow.com/a/67990102 --->
+|![alt](images/notePresenceRNN_lr_tuning_training.png) |![alt](images/notePresenceRNN_lr_tuning_validation.png)|
+|-|-|
+|![alt](images/notePresenceRNN_wd_tuning_training.png) | ![alt](images/notePresenceRNN_wd_tuning_validation.png) |
+|![alt](images/notePresenceRNN_noise_tuning_training.png) | ![alt](images/notePresenceRNN_noise_tuning_validation.png) |
 
+Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. However, we notice that ```lr=1e-5``` has begun overfitting, from the very slight increase in validation loss near epoch 120. Thus, we use ```lr=1e-5``` until the training loss no longer decreases noticably, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```.
 
-Originally, we started with a hidden size of 20. However, once we've tried increasing the hidden sizes to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. 
+We have not performed a formal grid search to tune ```notePresenceRNN_embedding_size``` or ```notePresenceRNN_hidden_size```. Originally, ```notePresenceRNN``` did not have an embedding layer, and started with a hidden size of 20. However, once we've tried increasing this hidden size to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. We have not tested the effect of ```notePresenceRNN_embedding_size```.
 
 For ```noteColourRNN```, we similarly performed a grid search on the hyperparameters ```lr```, ```wd```, and ```augment_noise```. Again, the training and validation sets used here are only 15% and 2.5% of the entire dataset respectively.
 
-<!--- https://stackoverflow.com/a/67990102 --->
 |![alt](images/noteColourRNN_lr_tuning_training.png) |![alt](images/noteColourRNN_lr_tuning_validation.png)|
 |-|-|
 |![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
-```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. However, ```lr=1e-5``` seems to overfit rather quickly. Thus, we've decided to train ```noteColourRNN``` using ```lr=1e-5``` until the validation loss starts going up, and then switch to ```lr=1e-6```. Weight decay didn't seem to affect the validation loss, while adding weight decay made the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```noteColourRNN```; we use ```wd=0```. Setting ```augment_noise=5``` again makes training loss descend more slowly, but ```augment_noise=5``` (compared to less ```augment_noise```) seemed to very slightly decrease validation loss, so we use ```augment_noise=5```.
+Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. Thus, we've decided to train ```noteColourRNN``` using ```lr=1e-5``` until the validation loss starts going up (without waiting for the training loss to plateau), and then switch to ```lr=1e-6```. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```.
 
-Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. We just went with 
+Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. Since it is architecturally similar to ```noteColourRNN```, we train it in the same manner: ```lr=1e-5, wd=0, augment_noise=5``` until overfitting, and then ```lr=1e-6, wd=0, augment_noise=5```.
 
 ## Results
 
 As mentioned, 
+
+### Qualitative evaluation
+
+Given a .mp3 audio file and the song's BPM and offset (again, only constant-tempo songs are supported), ```postprocessing.py``` uses the three (trained) models to produce a .osu file, containing an *osu!Taiko* map for the given song. To use ```postprocessing.py```, edit the ```load_state_dict()``` calls at the bottom of ```postprocessing.py``` to load the trained state dictionaries for each of ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN```. Change the variables ```audio_filepath```, ```BPM```, and ```offset``` appropriately, and run ```postprocessing.py```. By default, the created .osu file should be located at ```- <mp3_filename> (TaikoMapper) [Taiko].osu.``` in the same directory.
+
+To import the map into *osu!*:
+- Launch *osu!*.
+- Drag the .mp3 file from File Explorer into the *osu!* window. A new mapset containing the .mp3 file but no difficulties should be created. This new mapset's folder is found in the ```osu!/Songs``` directory as ```beatmap-<beatmap_id>-<mp3_filename>```. 
+- Copy the .osu file produced by ```postprocessing.py``` into ```beatmap-<beatmap_id>-<mp3_filename>```.
+
+To play the map:
+- Go to the *osu!* song selection screen.
+- (Press F5 to refresh the song list.)
+- Change the *Sort* value in the top-right to *By Date Added*, using the drop-down menu. Scroll to the bottom of the song selection menu, and select the created mapset.
+- Press enter to play the map, or use the "Auto Mod" to make *osu!* play the map using a bot (F1 -> click on the "Auto" icon -> Esc).  
 
 
 ## Ethical Considerations
