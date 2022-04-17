@@ -155,7 +155,13 @@ However, to save time, the training and validation sets are 15% and 2.5% of the 
 |![alt](images/notePresenceRNN_wd_tuning_training.png) | ![alt](images/notePresenceRNN_wd_tuning_validation.png) |
 |![alt](images/notePresenceRNN_noise_tuning_training.png) | ![alt](images/notePresenceRNN_noise_tuning_validation.png) |
 
-Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. However, we notice that ```lr=1e-5``` has begun overfitting, from the very slight increase in validation loss near epoch 120. Thus, we use ```lr=1e-5``` until the training loss no longer decreases noticably, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```.
+Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. Thus, we use ```lr=1e-5``` until training loss plateaus, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```. 
+
+However, after training the model with ```lr=1e-5, wd=0, augment_noise=5``` on the full dataset (80%/10%), we've noticed that the validation loss seems to plateau after around 20 epochs (training curve below) Thus, to discourage overfitting, we've trained the model from epoch 20 onwards with ```lr=1e-5, wd=0, augment_noise=10```, until the training loss plateaus.
+
+<p align="center">
+  <img src="/images/training_curve_overfit.png" alt="Training Curve Overfitting on notePresenceRNN" width="600"/>
+</p>
 
 We have not performed a formal grid search to tune ```notePresenceRNN_embedding_size``` or ```notePresenceRNN_hidden_size```. Originally, ```notePresenceRNN``` did not have an embedding layer, and started with a hidden size of 20. However, once we've tried increasing this hidden size to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. We have not tested the effect of ```notePresenceRNN_embedding_size```.
 
@@ -170,9 +176,9 @@ Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit r
 
 Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. Since it is architecturally similar to ```noteColourRNN```, we train it in the same manner: ```lr=1e-5, wd=0, augment_noise=5``` until overfitting, and then ```lr=1e-6, wd=0, augment_noise=5```.
 
-## Results
+## Training and Results
 
-As mentioned, 
+We've trained the 
 
 ### Qualitative evaluation
 
