@@ -55,7 +55,7 @@ The following diagram gives an overview on how the three models are connected.
   <img src="/images/TaikoMapper.png" alt="TaikoMapper Architecture" width="600"/>
 </p>
 
-Each of the three seq2seq models can be trained separately; see ```train.py```.
+Each of the three seq2seq models can be trained separately; see ```train.py```. We believe that ```notePresenceRNN``` is the most important model out of the three models, both because the placement of Taiko notes relies on the audio (for rhythmic hints) more than the other models, as well as because the other two models receive input from ```notePresenceRNN```. 
 
 ### Number of model parameters
 - ```notePresenceRNN```
