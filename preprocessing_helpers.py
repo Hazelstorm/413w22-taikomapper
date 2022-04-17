@@ -2,10 +2,10 @@ import librosa, math, os
 import numpy as np
 import matplotlib.pyplot as plt
 import hyper_param
-from pydub import AudioSegment # to convert mp3 to wav
+from pydub import AudioSegment
 
 """
-Return whether bit i is set in x.
+Return whether bit i is set in x (treated as a binary number).
 """
 def bit_flag(x, i):
     return bool(x & (1 << i))
@@ -35,12 +35,16 @@ def get_note_type(note):
     return 1 + is_kat + 2 * is_finish
 
 """
-Given the filepath to a .osu file, returns a list of notes in the song (see format below).
+Given the filepath to a .osu file, returns a list of notes in the song (see format below),
+as well as the song's bar_len and offset.
 
 Each note (type <type> at time <time> in ms) in the .osu file is represented as (<time>, <type>).
 The list of notes will contain a sequence of these (<time>, <type>) tuples.
 
-Returns None and prints an error if the map isn't in Taiko mode.
+Returns None and prints an error if the map:
+- Isn't in Taiko mode (mode != 1);
+- Has a negative offset;
+- Has multiple "uninhereted timing points" (multiple BPMs/offsets).
 """
 def get_map_data(filepath):
     with open(filepath, encoding="utf8") as file:
@@ -82,8 +86,9 @@ def get_map_data(filepath):
     return lst, offset, bar_len
 
 """
-Given a list of <notes> from get_map_notes(), create an array of length <song_len>, where 
-the t'th entry indicates the note type found at time t ms in the song (including no note).
+Given a list of <notes> from get_map_notes(), create an array of length <song_len> (should be the
+length of the song in milliseconds), where the t'th entry indicates the note type found at time 
+t ms in the song (including no note).
 
 Note types are stored as an integer between 1 and 4, as follows:
 none: 0
@@ -100,16 +105,9 @@ def get_note_data(notes, song_len):
     return data
 
 """
-Convert a list of notes from get_note_data into one-hot vectors.
-"""
-def make_onehot(notes, num_classes=5): 
-    I = np.eye(num_classes)
-    return I[notes]
-
-"""
 Given the <filepath> to a .mp3 and a window size, returns a numpy array
 containing spectrogram data for the .mp3 file.
-The mp3 is sampled in a window of size 2 * WINDOW_SIZE around each snap.
+The mp3 is sampled in a window of size 2 * WINDOW_SIZE + 1 milliseconds around each snap.
 convert=True converts mp3 files into wav before processing, as librosa doesn't
 handle mp3 efficiently.
 """
@@ -128,7 +126,7 @@ def get_map_audio(filepath, convert=True):
         print(f"{filepath}: error while processing audio file: {e}")
         exit()
 
-    # Get hyperparam for mp3 to spectrogram
+    # Get hyperparams for mp3 to spectrogram
     hop_length = hyper_param.hop_length
     win_length = hyper_param.win_length
     n_fft = hyper_param.n_fft
@@ -148,7 +146,7 @@ def get_map_audio(filepath, convert=True):
     return spectro
         
 """
-Produces a PyPlot of the spectrogram spectro.
+Produces a PyPlot of the spectrogram spectro (from get_map_audio() or otherwise).
 """
 def plot_spectrogram(spectro):
     fig = plt.figure()

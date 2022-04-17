@@ -73,16 +73,17 @@ def create_path_dict():
 
 
 """
-Processes all mapsets in data/data.pkl (see create_path_dict()) into numpy data and stores it.
+Processes all mapsets in data/data.pkl (see create_path_dict()) into numpy data, and stores
+the numpy data in data/npy/.
 
 For each mapset in data/data.pkl, if the mapset has any valid difficulties:
 - Create a folder data/npy/audio/data <mapset_folder_name>/, and store the audio's numpy
   as audio_data.npy in the newly-created folder.
 - For each valid difficulty, create a folder data/npy/<difficulty_name>/data <mapset_folder_name>/, 
   and store the notes' data in notes_data.npy, and timing data (including the length of one bar in ms,
- and offset (time of first beat in ms)) in timing.npy
+ and offset (time of first beat in ms)) in timing.npy.
 
-force=True allows overwrites of existing folders/data if needed.
+force=True allows overwriting of existing folders/data in data/npy/ if needed.
 """
 def create_data(force=False):
     
