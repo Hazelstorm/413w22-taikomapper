@@ -24,13 +24,13 @@ For more detailed information on the .osu file format, refer to the [*osu!Wiki*]
 
 ### TaikoMapper
 
-TaikoMapper is a modular seq2seq model that produces *osu!Taiko* maps. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
+TaikoMapper consists of three seq2seq models that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
 
 To preprocess an audio file, we require the ```BPM``` and ```offset``` of the song (note that TaikoMapper only supports songs that don't have varying tempos). With inspiration from [*Osu! Beatmap Generator*](https://github.com/Syps/osu_beatmap_generator), the audio is first converted into a [mel spectrogram](https://en.wikipedia.org/wiki/Mel_scale) using [```librosa```](https://librosa.org/doc/latest/generated/librosa.feature.melspectrogram.html). The mel scale divides the total range of frequencies (```fmin``` and ```fmax``` in ```hyper_param.py```) into frequency bands of equal logarithmic length. The spectrogram produced by this procedure has shape ```L x n_mels```, where ```L``` is the length of the audio file (in milliseconds) and ```n_mels``` (specified in ```hyper_param.py```) is the number of frequency bands (or "mel"s) in the frequency range. 
 
 Then, we extract a time window from the spectrogram around each "snap", and place the time windows into a sequence.  A "snap" is a time point on the boundary of each 1/4 regular subdivision of a measure/bar, the length of one bar being 60000/BPM milliseconds (for example, in a 100BPM song, each bar is 600ms in length, so each snap is 150ms apart. If a bar begins at time 1000ms, the snaps occur at 1000ms, 1150ms, 1300ms, 1450ms, ...). The time window size is specified by ```window_size``` in ```hyper_params.py```; we extract ```window_size``` ms to the left and right of each snap from the spectrogram. The resulting sequence of time windows has size ```N x (2 * window_size + 1) x n_mels```, with ```N``` being the total number of snaps in the audio file. We flatten the spectrogram windows to instead have size ```N x ((2 * window_size + 1) * n_mels)```.
 
-Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows around each snap, and produces a sequence of length ```N```, with each entry being an integer from 0-4. Each entry determines the note (or the absence of a note) occurring on its respective snap, with 0, 1, 2, 3, and 4 respectively indicating no note, don, kat, don finisher, and kat finisher.
+Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows around each snap, and produces three sequences of length ```N``` (one from each of  ```notePresenceRNN```, ```noteColourRNN``` and ```noteFinisherRNN```). The first sequnece determines the presence or absence of a note occurring on the respective snap; the second sequence determines the colour of the note occurring on that snap (don or kat), if any; the third sequence determines whether the note occuring on that snap is a finisher
 
 
 ## Model
@@ -48,7 +48,7 @@ TaikoMapper's is constructed using three seq2seq models, all having a bidirectio
   <img src="/images/noteColourRNN.png" alt="noteColourRNN Architecture" width="600"/>
 </p>
 
-- ```noteFinisherRNN```, used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and ```notes_data```, and the output is a sequence of ```N``` floats, with positive value to indicate finisher.
+- ```noteFinisherRNN```, used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and ```notes_data```, and the output is a sequence of ```N``` floats, with positive value to indicate finisher. However, ```noteFinisherRNN``` is trained using a different loss function from ```noteColourRNN``` (see [Quantitative Measures](#quantitative-measures)), in order to place finishers instead of colouring.
 
 The following diagram gives an overview on how the three models are connected.
 <p align="center">
@@ -63,14 +63,21 @@ Each of the three seq2seq models can be trained separately; see ```train.py```. 
   + The GRU takes in an embedding of size ```notePresenceRNN_embedding_size```, and outputs two hidden units of size ```notePresenceRNN_hidden_size```. Each bidirectional GRU has six weight matrices of size ```(input_size, hidden_size)```, another six weight matrices of size ```(hidden_size, hidden_size)```, and three bias vectors of size ```hidden_size```. To compute the update gate forward, for example, we need to apply one of the ```(input_size, hidden_size)``` matrices to the input, one of the ```(hidden_size, hidden_size)``` matrices to the previous hidden unit, and add one of the bias vectors. The reset gate and candidate hidden unit also both need one of each. Finally, we have a separate set of weight matrices for the backwards computation due to bidirectionality. Thus, in total, we have ```6 * input_size * hidden_size + 6 * hidden_size * hidden_size + 3 * hidden_size``` trainable parameters in the GRU, where ```input_size``` is ```notePresenceRNN_embedding_size``` and ```hidden_size``` is ```notePresenceRNN_hidden_size```.
   + The fully-connected linear layer at the end has input size ```2 * notePresenceRNN_hidden_size```, and output size 1, so there are ```2 * notePresenceRNN_hidden_size + 1``` trainable parameters.
 - ```noteColourRNN``` and ```noteFinisherRNN```
-  + The linear embedding layer takes in a spectrogram window of size ```(2 * window_size + 1) * n_mels + 1```, and embeds it into a vector of size ```noteColourRNN_embedding_size```, so there are ```((2 * window_size + 1)* n_mels + 2) * noteColourRNN_embedding_size``` trainable parameters.
+  + The linear embedding layer takes in a spectrogram window of size ```(2 * window_size + 1) * n_mels + 1``` and a note (scalar), and embeds it into a vector of size ```noteColourRNN_embedding_size```, so there are ```((2 * window_size + 1)* n_mels + 2) * noteColourRNN_embedding_size``` trainable parameters.
   + The GRU takes in an embedding of size ```noteColourRNN_embedding_size```, and outputs two hidden units of size ```noteColourRNN_hidden_size```. So the GRU has ```6 * input_size * hidden_size + 6 * hidden_size * hidden_size + 3 * hidden_size``` trainable parameters in the GRU, where ```input_size``` is ```noteColourRNN_embedding_size``` and ```hidden_size``` is ```noteColourRNN_hidden_size```..
   + The fully-connected linear layer at the end has input size ```2 * noteColourRNN_hidden_size```, and output size 1, so there are ```2 * noteColourRNN_hidden_size + 1``` trainable parameters.
 
+By default, we have set the following:
+- ```window_size=32```, ```n_mels=40```.
+- ```notePresenceRNN_embedding_size=256```, ```notePresenceRNN_hidden_size=256```.
+- ```noteColourRNN_embedding_size=256```, ```noteColourRNN_hidden_size=256```.
 
-<!---
-number of trainable parameters by default
---->
+Thus, using our computations above,
+- ```notePresenceRNN``` has ```((2 * 32 + 1) * 40 + 1) * 256 = 665856``` trainable parameters in its embedding layer,```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. In total, ```notePresenceRNN``` has 
+1,453,569 trainable parameters.
+- ```noteColourRNN``` and ```noteFinisherRNN``` both have ```((2 * 32 + 1) * 40 + 2) * 256 = 666112``` parameters in its embedding layer, ```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. ```noteColourRNN``` and ```noteFinisherRNN``` both have 1,453,825 parameters in total.
+
+Combining all three models together, we have 4,361,219 parameters. 
 
 <!---
 successful and unsuccessful example
