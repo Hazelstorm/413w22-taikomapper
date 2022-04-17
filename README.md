@@ -55,7 +55,7 @@ The following diagram gives an overview on how the three models are connected.
   <img src="/images/TaikoMapper.png" alt="TaikoMapper Architecture" width="600"/>
 </p>
 
-Each of the three seq2seq models can be trained separately; see ```train.py```.
+Each of the three seq2seq models can be trained separately; see ```train.py```. We believe that ```notePresenceRNN``` is the most important model out of the three models, both because the placement of Taiko notes relies on the audio (for rhythmic hints) more than the other models, as well as because the other two models receive input from ```notePresenceRNN```. 
 
 ### Number of model parameters
 - ```notePresenceRNN```
@@ -120,7 +120,7 @@ We have defined different loss measures for the three models.
 - For ```notePresenceRNN```, recall that its output of ```N``` floats indicate the note presence at that snap. The greater the float value, the more confidence the model has in placing a note at that snap. On the other hand, the ground truth is a sequence of ```N``` 0s or 1s, indicating whether there is actually a note at that snap in the map. Thus, we've decided to take the softmax of the model output, to convert the output sequence into a sequence of probabilities on whether there is a note at the snap. Then, we compute the binary cross-entropy loss of this probability sequence with the ground truth. These two operations are combined into a [binary cross-entropy with logits](https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html) loss. However, in a typical Taiko map, most snaps do not have notes; there are usually around 3-10 times more empty snaps than snaps with notes. ```note_presence_weight``` (computed before training) is used to compensate for this note sparsity by emphasizing on present notes when computing loss.
 - The hyperparameter ```note_presence_weight``` (in ```hyper_params.py```) is used to compensate for this note sparsity, through scaling the weight positive examples by ```note_presence_weight```.
 - For ```noteColourRNN```, its output of ```N``` floats indicate whether the note at that snap should be coloured blue. The greater the value, the more likely the note is to be blue. The ground truth is a sequence of integers from 0 to 4; recall that 0, 1, 2, 3, and 4 represent no note, don, kat, don finisher, and kat finisher respectively. If the ground truth is 2 or 4 (indicating a blue/kat note), then ```noteColourRNN``` should be penalized for predicting a red note (low value); if the ground truth is 1 or 3 (indicating a red/don note), the model should be penalized for predicting a blue note (high value). If the ground truth is 0, the model is forced to predict 0, as mentioned before. Again, we use the binary cross-entropy with logits loss here; however we filter out the sequence entries that represent no note, as we don't want to penalize the model's colour prediction when a note is not present. Using binary CE with logits, we compare this filtered output with a binary ground-truth sequence of the same length, with 0 for red and 1 for blue. This time, weighing a positive example is not necessary; the number of red and blue notes in a typical Taiko map are similar.
-- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss, and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is computed before training and used to emphasize finisher notes when computing loss for ```noteFinisherRNN```.
+- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss, and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```. However, we found that using the ratio of non-finisher to finisher notes resulted in the model predicting a finisher for every note. Instead, after trying the values ```noteFinisherRNN = 50``` and ```noteFinisherRNN = 10``` (where the problem wasn't fixed), we opted to set ```noteFinisherRNN = 5```.
 
 
 ## Hyperparameters
@@ -146,11 +146,21 @@ After switching to a learning rate of ```1e-6```, the loss seemed to decrease ag
 
 Originally, we started with a hidden size of 20. However, once we've tried increasing the hidden sizes to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. 
 
-Unfortunately, due to time constraints, we do not have any formal grid searching tests on the hidden sizes or embedding sizes. As well, since preprocessing the whole dataset takes a long time (a few hours), we were unable to test the effect of ```n_mels```, ```fmin```, and ```fmax``` on the training curve. For ```fmin``` and ```fmax``` we instead just used heuristics in setting the values to ```fmin = 20, fmax = 5000````, since most musical elements appear in this frequency range.
+For ```noteColourRNN```, we similarly performed a grid search on the hyperparameters ```lr```, ```wd```, and ```augment_noise```. Again, the training and validation sets used here are only 15% and 2.5% of the entire dataset respectively.
 
-We've automatically computed ```note_presence_weight``` and ```note_finisher_weight``` in ```train.py``` (using the functions ```compute_note_presence_weight``` and ```compute_note_finisher_weight```), by finding the ratio of snaps with notes versus snaps without notes, and the ratio of finishers to non-finishers.
+<!--- https://stackoverflow.com/a/67990102 --->
+|![alt](images/noteColourRNN_lr_tuning_training.png) |![alt](images/noteColourRNN_lr_tuning_validation.png)|
+|-|-|
+|![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
+|![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
+
+```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. However, ```lr=1e-5``` seems to overfit rather quickly. Thus, we've decided to train ```noteColourRNN``` using ```lr=1e-5``` until the validation loss starts going up, and then switch to ```lr=1e-6```. Weight decay didn't seem to affect the validation loss, while adding weight decay made the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```noteColourRNN```; we use ```wd=0```. Setting ```augment_noise=5``` again makes training loss descend more slowly, but ```augment_noise=5``` (compared to less ```augment_noise```) seemed to very slightly decrease validation loss, so we use ```augment_noise=5```.
+
+Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. We just went with 
 
 ## Results
+
+As mentioned, 
 
 
 ## Ethical Considerations
