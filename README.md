@@ -129,34 +129,37 @@ Our TaikoMapper model has the following hyperparameters:
 - ```n_mels```, ```window_size```, ```fmin```, ```fmax```: These hyperparameters determine the information stored in the spectrogram windows.
 
 In addition, the training loop has the following hyperparameters:
-- ```learning_rate```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
+- ```lr```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
 - ```augment_noise```: Also found in ```train.py```, this parameter adds noise to the spectrogram windows before training the models. 
 
 ### Tuning
-To tune the learning rate, we've tried training the ```notePresenceRNN``` for 100 epochs with varying learning rates (```1e-4, 1e-5, 1e-6```). After plotting the training curves, we've decided to use a learning rate of ```1e-5``` to start out in ```notePresenceRNN```.
+To tune the hyperparameters ```lr```, ```wd```, and ```augment_noise``` for ```notePresenceRNN```, we've performed a grid search for 150 epochs with each combination of the following:
+- ```lr=1e-4```, ```lr=1e-5```, ```lr=1e-6```.
+- ```wd=0.01```, ```wd=0.0001```, ```wd=0```.
+- ```augment_noise=None```, ```augment_noise=0.05```, ```augment_noise=0.5```, ```augment_noise=5```.
 
-<p align="center">
-  <img src="/images/learning_rate_training_curves.png" alt="Learning Rate Training Curves" width="600"/>
-</p>
+However, to save time, the training and validation sets are 15% and 2.5% of the entire dataset respectively (instead of 80% and 10% when training the final model). Thus, the loss decreases less per epoch, and the model may start overfitting earlier in the grid search.
 
-However, we've reached a plateau of around 0.75 loss after around 200 iterations (with the model starting out pretrained from the learning rate search). 
-<!--- image --->
-After switching to a learning rate of ```1e-6```, the loss seemed to decrease again.
+<!--- https://stackoverflow.com/a/67990102 --->
+|![alt](images/notePresenceRNN_lr_tuning_training.png) |![alt](images/notePresenceRNN_lr_tuning_validation.png)|
+|-|-|
+|![alt](images/notePresenceRNN_wd_tuning_training.png) | ![alt](images/notePresenceRNN_wd_tuning_validation.png) |
+|![alt](images/notePresenceRNN_noise_tuning_training.png) | ![alt](images/notePresenceRNN_noise_tuning_validation.png) |
 
+Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. However, we notice that ```lr=1e-5``` has begun overfitting, from the very slight increase in validation loss near epoch 120. Thus, we use ```lr=1e-5``` until the training loss no longer decreases noticably, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```.
 
-Originally, we started with a hidden size of 20. However, once we've tried increasing the hidden sizes to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. 
+We have not performed a formal grid search to tune ```notePresenceRNN_embedding_size``` or ```notePresenceRNN_hidden_size```. Originally, ```notePresenceRNN``` did not have an embedding layer, and started with a hidden size of 20. However, once we've tried increasing this hidden size to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. We have not tested the effect of ```notePresenceRNN_embedding_size```.
 
 For ```noteColourRNN```, we similarly performed a grid search on the hyperparameters ```lr```, ```wd```, and ```augment_noise```. Again, the training and validation sets used here are only 15% and 2.5% of the entire dataset respectively.
 
-<!--- https://stackoverflow.com/a/67990102 --->
 |![alt](images/noteColourRNN_lr_tuning_training.png) |![alt](images/noteColourRNN_lr_tuning_validation.png)|
 |-|-|
 |![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
-```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. However, ```lr=1e-5``` seems to overfit rather quickly. Thus, we've decided to train ```noteColourRNN``` using ```lr=1e-5``` until the validation loss starts going up, and then switch to ```lr=1e-6```. Weight decay didn't seem to affect the validation loss, while adding weight decay made the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```noteColourRNN```; we use ```wd=0```. Setting ```augment_noise=5``` again makes training loss descend more slowly, but ```augment_noise=5``` (compared to less ```augment_noise```) seemed to very slightly decrease validation loss, so we use ```augment_noise=5```.
+Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. Thus, we've decided to train ```noteColourRNN``` using ```lr=1e-5``` until the validation loss starts going up (without waiting for the training loss to plateau), and then switch to ```lr=1e-6```. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```.
 
-Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. We just went with 
+Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. Since it is architecturally similar to ```noteColourRNN```, we train it in the same manner: ```lr=1e-5, wd=0, augment_noise=5``` until overfitting, and then ```lr=1e-6, wd=0, augment_noise=5```.
 
 ## Results
 
