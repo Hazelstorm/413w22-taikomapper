@@ -94,7 +94,7 @@ class MapDataset(Dataset):
 
 
 note_presence_weight = 5 
-note_finisher_weight = 50
+note_finisher_weight = 5
 
 """
 Compute the average ratio of present notes to non-present notes on snaps, and update
@@ -111,22 +111,6 @@ def compute_note_presence_weight():
         total_no_notes += no_notes
     global note_presence_weight
     note_presence_weight = total_no_notes / total_notes
-
-"""
-Compute the average ratio of finisher notes to non-finisher notes, and update
-note_finisher_weight accordingly.
-"""
-def compute_note_finisher_weight():
-    train_dataset = MapDataset(0, SPLIT[0])
-    train_loader = DataLoader(train_dataset)
-    total_finishers = 0
-    total_not_finishers = 0
-    for _, _, notes_data in train_loader:
-        finishers, not_finishers = helper.get_finisher_ratio(notes_data)
-        total_finishers += finishers
-        total_not_finishers += not_finishers
-    global note_finisher_weight
-    note_finisher_weight = total_not_finishers / total_finishers
 
 
 # Loss functions for each model
@@ -268,8 +252,6 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
 if __name__ == "__main__":
     print("Computing note presence weight...")
     compute_note_presence_weight()
-    print("Computing note finisher weight...")
-    compute_note_finisher_weight()
     signal.signal(signal.SIGINT, signal_handler) # Plot upon SIGINT
     checkpoint_dir = "checkpoints"
     if not (os.path.isdir("checkpoints")):
@@ -300,8 +282,11 @@ if __name__ == "__main__":
     finisher_model = noteFinisherRNN()
     if torch.cuda.is_available():
         finisher_model = finisher_model.cuda()
-    # finisher_model.load_state_dict(torch.load("..."))
+    finisher_model.load_state_dict(torch.load("noteFinisherRNN-iter20.pt"))
+    # train_losses, val_losses, val_iters = train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
+    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
+    #     plot=True, augment_noise=5)
     train_losses, val_losses, val_iters = train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
         learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
-        plot=True, augment_noise=5)
+        plot=True, augment_noise=10)
     dump_losses(train_losses, val_losses, val_iters)

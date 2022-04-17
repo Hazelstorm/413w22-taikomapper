@@ -6,6 +6,7 @@ checkpoint/
 checkpoints/
 .vscode
 *.pk
+*.pt
 *.osu
 *.csv
 *.json
