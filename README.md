@@ -174,7 +174,7 @@ Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning 
 
 As mentioned, 
 
-# Qualitative evaluation
+### Qualitative evaluation
 
 Given a .mp3 audio file and the song's BPM and offset (again, only constant-tempo songs are supported), ```postprocessing.py``` uses the three (trained) models to produce a .osu file, containing an *osu!Taiko* map for the given song. To use ```postprocessing.py```, edit the ```load_state_dict()``` calls at the bottom of ```postprocessing.py``` to load the trained state dictionaries for each of ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN```. Change the variables ```audio_filepath```, ```BPM```, and ```offset``` appropriately, and run ```postprocessing.py```. By default, the created .osu file should be located at ```- <mp3_filename> (TaikoMapper) [Taiko].osu.``` in the same directory.
 
