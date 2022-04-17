@@ -187,7 +187,7 @@ Given a .mp3 audio file and the song's BPM and offset (again, only constant-temp
 To import the map into *osu!*:
 - Launch *osu!*.
 - Drag the .mp3 file from File Explorer into the *osu!* window. A new mapset containing the .mp3 file but no difficulties should be created. This new mapset's folder is found in the ```osu!/Songs``` directory as ```beatmap-<beatmap_id>-<mp3_filename>```. 
-- Copy the .osu file produced by ```postprocessing.py``` into ```beatmap-<beatmap_id>-<mp3_filename>```.
+- Copy the .osu file produced by ```postprocessing.py``` into the mapset folder (```beatmap-<beatmap_id>-<mp3_filename>```).
 
 To play the map:
 - Go to the *osu!* song selection screen.
