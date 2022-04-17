@@ -161,7 +161,7 @@ def note_finisher_loss(model_output, notes_data, pos_weight=note_finisher_weight
     pos_weight = torch.tensor(pos_weight)
     if torch.cuda.is_available():
         pos_weight = pos_weight.cuda()
-    bce = torch.nn.BCEWithLogitsLoss(pos_weight=hyper_param.note_finisher_weight)
+    bce = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     loss = bce(model_output, finisher_notes)
     return loss
 
@@ -277,14 +277,14 @@ if __name__ == "__main__":
 
 
     # Train notePresenceRNN
-    presence_model = notePresenceRNN()
-    if torch.cuda.is_available():
-        presence_model = presence_model.cuda()
-    # presence_model.load_state_dict(torch.load("..."))
-    train_losses, val_losses, val_iters = train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
-        learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
-        plot=True, augment_noise=5)
-    dump_losses(train_losses, val_losses, val_iters)
+    # presence_model = notePresenceRNN()
+    # if torch.cuda.is_available():
+    #     presence_model = presence_model.cuda()
+    # # presence_model.load_state_dict(torch.load("..."))
+    # train_losses, val_losses, val_iters = train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
+    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
+    #     plot=True, augment_noise=5)
+    # dump_losses(train_losses, val_losses, val_iters)
     
     # Train noteColourRNN
     # colour_model = noteColourRNN()
@@ -293,5 +293,15 @@ if __name__ == "__main__":
     # colour_model.load_state_dict(torch.load("..."))
     # train_losses, val_losses, val_iters = train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, 
     #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteColourRNN-iter{}.pt", 
-    #     plot=True, augment_noise=True)
+    #     plot=True, augment_noise=5)
     # dump_losses(train_losses, val_losses, val_iters)
+
+    # Train noteFinisher
+    finisher_model = noteFinisherRNN()
+    if torch.cuda.is_available():
+        finisher_model = finisher_model.cuda()
+    # finisher_model.load_state_dict(torch.load("..."))
+    train_losses, val_losses, val_iters = train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
+        learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
+        plot=True, augment_noise=5)
+    dump_losses(train_losses, val_losses, val_iters)
