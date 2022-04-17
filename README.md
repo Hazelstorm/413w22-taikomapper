@@ -24,7 +24,7 @@ For more detailed information on the .osu file format, refer to the [*osu!Wiki*]
 
 ### TaikoMapper
 
-TaikoMapper consists of three seq2seq models that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
+TaikoMapper consists of three seq2seq models (found in ```rnn.py```) that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
 
 To preprocess an audio file, we require the ```BPM``` and ```offset``` of the song (note that TaikoMapper only supports songs that don't have varying tempos). With inspiration from [*Osu! Beatmap Generator*](https://github.com/Syps/osu_beatmap_generator), the audio is first converted into a [mel spectrogram](https://en.wikipedia.org/wiki/Mel_scale) using [```librosa```](https://librosa.org/doc/latest/generated/librosa.feature.melspectrogram.html). The mel scale divides the total range of frequencies (```fmin``` and ```fmax``` in ```hyper_param.py```) into frequency bands of equal logarithmic length. The spectrogram produced by this procedure has shape ```L x n_mels```, where ```L``` is the length of the audio file (in milliseconds) and ```n_mels``` (specified in ```hyper_param.py```) is the number of frequency bands (or "mel"s) in the frequency range. 
 
@@ -182,7 +182,7 @@ As mentioned in [Tuning](#tuning), we've trained ```notePresenceRNN``` with ```l
 
 ### Qualitative evaluation
 
-Given a .mp3 audio file and the song's BPM and offset (again, only constant-tempo songs are supported), ```postprocessing.py``` uses the three (trained) models to produce a .osu file, containing an *osu!Taiko* map for the given song. To use ```postprocessing.py```, edit the ```load_state_dict()``` calls at the bottom of ```postprocessing.py``` to load the trained state dictionaries for each of ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN```. Change the variables ```audio_filepath```, ```BPM```, and ```offset``` appropriately, and run ```postprocessing.py```. By default, the created .osu file should be located at ```- <mp3_filename> (TaikoMapper) [Taiko].osu.``` in the same directory.
+Given a .mp3 audio file and the song's BPM and offset, ```postprocessing.py``` uses the three (trained) models to produce a .osu file, containing an *osu!Taiko* map for the given song. Again, only constant-tempo songs are supported by our model; you may use an audio editor to find the offset, and use an online tool such as [Tunebat](https://tunebat.com/Analyzer) to find the BPM. To use ```postprocessing.py```, edit the ```load_state_dict()``` calls at the bottom of ```postprocessing.py``` to load the trained state dictionaries for each of ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN```. Change the variables ```audio_filepath```, ```BPM```, and ```offset``` appropriately, and run ```postprocessing.py```. By default, the created .osu file should be located at ```- <mp3_filename> (TaikoMapper) [Taiko].osu.``` in the same directory.
 
 To import the map into *osu!*:
 - Launch *osu!*.
@@ -217,12 +217,13 @@ Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)):
 - Wrote most of the helper functions in ```helper.py```.
 - Wrote a transformer model for this task (```transformer.py``` in older commits). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
 - Proposed different models that could solve this problem.
+- Trained the ```noteFinisherRNN``` model on his computer (RTX 2060).
 
 Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Created the preprocessing code (with Sloan).
 - Helped write some of the helper functions in ```helper.py```.
 - Helped David with postprocessing.py
-- Trained the ```notePresenceRNN``` and ```noteFinisherRNN``` models on her computer (RTX 3080 Ti).
+- Trained the ```notePresenceRNN``` models on her computer (RTX 3080 Ti).
 - Produced most of the training curves
 
 Paul Zhang ([@sjorv](https://github.com/sjorv)): 
@@ -235,6 +236,6 @@ Paul Zhang ([@sjorv](https://github.com/sjorv)):
 - Proposed and built consensus for this project.
 
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
-- Wrote ```postprocessing.py``` and ```postprocessing_helpers.py```.
+- Wrote the original code for ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Wrote ```get_npy_stats.py``` to obtain statistics on the dataset.
 - Trained the ```noteColourRNN``` model on his computer (RTX 3070).
