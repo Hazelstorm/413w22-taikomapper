@@ -17,10 +17,10 @@ BeatDivisor = "4"
 GridSize = "32"
 TimelineZoom = "2"
 # MetadataValues
-Title = "Song Title"
-TitleUnicode = "Song Title"
-Artist = "Song Artist"
-ArtistUnicode = "Song Artist"
+Title = ""
+TitleUnicode = ""
+Artist = ""
+ArtistUnicode = ""
 Creator = "TaikoMapper"
 Version = "Taiko"
 Source = ""
@@ -28,9 +28,9 @@ Tags = ""
 BeatmapID = "0"
 BeatmapSetID = "-1"
 # DifficultyValues
-HPDrainRate = "5"
+HPDrainRate = "8" # Recommended: 8,7,6,5 for kantan, futsuu, muzu, oni diffs respectively
 CircleSize = "2"
-OverallDifficulty = "5"
+OverallDifficulty = "2" # Recommended: 2,3,4,5 for kantan, futsuu, muzu, oni diffs respectively
 ApproachRate = "10"
 SliderMultiplier = "1.4"
 SliderTickRate = "1"
@@ -100,7 +100,6 @@ current_vals = {
 
 """
 Sets current parameters for song data, overwriting default data.
-
 Parameters:
     pairs (list of tuple): A list containing all the changes to be made to the parameters
 """
