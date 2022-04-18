@@ -192,16 +192,16 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 
 Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly, so instead we use ```lr=1e-6``` from the start.. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```.
 
-## Training and Results
-
-As mentioned in [Tuning](#tuning), we've trained ```notePresenceRNN``` with ```lr=1e-5, wd=0, augment_noise=5``` until it started overfitting (epoch 20), then switched to  ```lr=1e-5, wd=0, augment_noise=10``` until the training loss plateaued, and then finished with ```lr=1e-6, wd=0, augment_noise=10```. 
-
-### Justification for Choice of Model
+## Justification for Choice of Model
 Since creating a Taiko map is a seq2seq problem (audio file to sequence of notes), we have opted to use RNNs. However, in human-made Taiko maps, there tend to be some simple predefined patterns such as the "triple" (three consecutive notes spaced 1/4 apart). However, Taiko maps also have more complicated structures such as "break sections" where there are no notes (and the player waits and listen to the music until the break section ends, where they start playing again). Thus, having the model learn long-term dependencies would be preferrable, which is why we've opted to use a GRU. The GRU is bidirectional, as in Taiko, note placement should be made accordingly with notes in the future, as well as notes from the past. For example, if the model sees that there is a note exactly one snap away from the current snap, the model should refrain from placing a note on the current snap, unless the model wants to form a pattern of notes such as the triple.
 
 We've originally intended to use a Transformer as our final model; however we've quickly encounted issues with limited GPU memory. At that point in the project, we were feeding the TaikoMapper millisecond-by-millisecond audio data (instead of audio windows around each snap). With this, the input consists of sequences of length up to 300000 (5 minutes), while the Transformer's attention mechanism requires ```O(n^2)``` memory to store the attention weights, where ```n``` is the sequence length. Even when we attempted to limit the maximum song length to 2 minutes (120000ms), the model attempted to allocate >500GB of video memory. We have considered using a [reformer](https://ai.googleblog.com/2020/01/reformer-efficient-transformer.html) instead, but ultimately just decided to using a GRU for simplicity (and we switched to using audio windows instead of per-ms audio data after this decision was made).
 
 It also turns out that the input embedding layer is essential for the model to produce reasonable results. Originally, without the embedding layer, our model failed to produce any result that captures musical rhythm; the model produced either sporadic notes or "note spam", and failed to learn common Taiko patterns such as the triple.
+
+## Training and Results
+
+The final weights for ```notePresenceRNN``` and ```noteColourRNN``` can be found in the ```final-model-weights``` folder.
 
 ### Training Curves
 As mentioned in the [Tuning](#tuning) section, for ```notePresenceRNN``` we start with ```lr=1e-5, wd=0, augment_noise=5```.
@@ -247,9 +247,27 @@ To play the map:
 
 ### Qualitative Evaluation
 
-We've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
+Overall, the ```notePresenceRNN``` model seemed to pick up percussion elements quite well. However, we've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
 - Low-intensity sections of music tend to have less percussion and more melodic elements. On the other hand, ```notePresenceRNN``` seems to focus on the percussion element of music, so the model could struggle when percussion is not present. Furthermore, we've limited ```fmax```, the max frequency for the spectrogram, to 5000 Hz; this frequency limit may cut off treble in low-intensity sections (where bass is limited).
 - In human-made Taiko maps, usually a break section would be placed upon a low-intensity musical verse. Our model has occassionally placed "break sections", albeit most of the time there are a handful of notes in the break section. We see this as an attempt by the model to imitate the human break section, but an incorrectly-placed break section can be penalized heavily by our loss (predicting no note when there is a note is penalized heavily).
+
+For ```noteColourRNN```, we see that the model prefers to place kats for high-pitched percussion and dons for low-pitched percussion. This is consistent with the pattern found in human-made Taiko maps (since hitting kats plays a sound effect that is higher-pitched, compared to hitting dons). 
+
+#### Surveying Beatmap Nominators
+
+In *osu!*, "Beatmap Nominators" (BNs) are Taiko map creators that have the power to promote other mapsets to ranked status, after the map passes a quality check process. Since Sloan has created a few ranked maps before, he is familiar with some BNs. Thus, to get other (qualified) people to evaluate the quality of our model, Sloan has sent the two maps produced by our model to a group of BNs, and asked the following questions to them:
+
+```
+Please look over the maps sent with this message and answer the following questions for one or both of them:
+
+What difficulty do you believe the map is intended to be, and why?
+
+Please provide your thoughts on the quality of the map (in particular, with respect to the patterning and colouring ONLY)
+
+Would you rank a mapset with this difficulty? If not, give some examples of what would have to change in order for you to be comfortable with ranking it. (in particular, with respect to the patterning and colouring ONLY)
+
+Finally, do you consent to your responses being included in our report? 
+```
 
 
 ## Ethical Considerations
