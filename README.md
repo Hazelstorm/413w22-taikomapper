@@ -146,14 +146,13 @@ In addition, the training loop has the following hyperparameters:
 - ```lr```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
 - ```augment_noise```: Also found in ```train.py```, this parameter adds noise to the spectrogram windows before training the models. 
 
-Finally, the following variables may have qualitative effects on the model output, as mentioned before. These variables also change the loss function, so grid search is not possible:
+Finally, the following variables may have qualitative effects on the model output by encouraging positive predictions. These variables also change the loss function, so grid search is not possible:
 - ```note_presence_weight```
 - ```note_finisher_weight```
 
 ### Tuning
 To tune the hyperparameters ```lr```, ```wd```, and ```augment_noise``` for ```notePresenceRNN```, we've performed a grid search for 150 epochs with each combination of the following:
 - ```lr=1e-4```, ```lr=1e-5```, ```lr=1e-6```.
-- ```wd=0.01```, ```wd=0.0001```, ```wd=0```.
 - ```augment_noise=None```, ```augment_noise=0.05```, ```augment_noise=0.5```, ```augment_noise=5```.
 
 However, to save time, the training and validation sets are 15% and 2.5% of the entire dataset respectively (instead of 80% and 10% when training the final model). Thus, the loss decreases less per epoch, and the model may start overfitting earlier in the grid search.
@@ -165,6 +164,11 @@ However, to save time, the training and validation sets are 15% and 2.5% of the 
 |![alt](images/notePresenceRNN_noise_tuning_training.png) | ![alt](images/notePresenceRNN_noise_tuning_validation.png) |
 
 Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. Thus, we use ```lr=1e-5``` until training loss plateaus, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```. 
+
+Note: In a previous model (spectrogram windows without snap vector), we've noticed that ```wd``` didn't really seem to decrease validation loss and instead slowed the decrease of training loss. For example, on ```notePresenceRNN``` (taking in spectrogram windows without snap vector), the training curves were as follows:
+|![alt](images/notePresenceRNN_lr_tuning_training_old.png) |![alt](images/notePresenceRNN_lr_tuning_validation_old.png)|
+|-|-|
+Thus, when we switched to appending the snap vector, we did not bother testing the effect of ```wd```.
 
 However, after training the model with ```lr=1e-5, wd=0, augment_noise=5``` on the full dataset (80%/10%), we've noticed that the validation loss seems to plateau after around 20 epochs (training curve below) Thus, to discourage overfitting, we've trained the model from epoch 20 onwards with ```lr=1e-5, wd=0, augment_noise=10```, until the training loss plateaus.
 
