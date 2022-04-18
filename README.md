@@ -190,7 +190,7 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 |![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
-Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```. Similar to ```notePresenceRNN```, we've decided to train ```noteColourRNN``` using ```lr=1e-5, wd=0, augment_noise=5``` until the validation loss plateaus. We then train it using ```lr=1e-6``` for a short while, until the validation loss plateaus again.
+Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly, so instead we use ```lr=1e-6``` from the start.. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```.
 
 ## Training and Results
 
@@ -208,12 +208,17 @@ As mentioned in the [Tuning](#tuning) section, for ```notePresenceRNN``` we star
 <p align="center">
   <img src="/images/notePresenceRNN_training_curve_overfit.png" alt="Training Curve Overfitting on notePresenceRNN" width="600"/>
 </p>
-We've noticed that the validation loss seems to plateau after around 20 epochs. Thus, to discourage overfitting, we've trained the model from epoch 20 onwards with ```lr=1e-5, wd=0, augment_noise=10```, until the training loss plateaus.
+We've noticed that the validation loss seems to plateau after around 20 epochs. Thus, we've trained the model from epoch 20 onwards with ```lr=1e-6, wd=0, augment_noise=15```.
 <p align="center">
   <img src="/images/notePresenceRNN_training_curve.png" alt="Training Curve for notePresenceRNN" width="1000"/>
 </p>
 As seen, the final training loss is approximately 0.6, while the final validation loss plateaued around 0.68. 
 
+
+For ```noteColourRNN```, we've trained with ```lr=1e-6, wd=0, augment_noise=15```. The final training loss is approximately 0.67, while the final validation loss is approximately 0.68. ```noteColourRNN``` took considerably less epochs to plateau compared to ```notePresenceRNN```; again we believe this is due to ```notePresenceRNN``` relying much more on audio cues. 
+<p align="center">
+  <img src="/images/noteColourRNN_training_curve.png" alt="Training Curve for noteColourRNN" width="1000"/>
+</p>
 
 ### Converting to *osu!* maps
 
