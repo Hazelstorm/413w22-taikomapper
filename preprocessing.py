@@ -130,7 +130,6 @@ def create_data(force=False):
                             np.save(os.path.join(diff_directory, "notes_data.npy"), notes_data)
                             with open(os.path.join(diff_directory, "timing_data.json"), "w+") as file:
                                 json.dump(timing_data, file)
-                        
     
     for diff in diffs:
         print(f"Total Valid {diff} Difficulties: {total_diffs[diff]}")
