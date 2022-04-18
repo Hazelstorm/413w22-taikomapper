@@ -7,9 +7,9 @@ import hyper_param
 index_to_hitsound = { \
   # index in model, hitsound in .osu file
   1: 0, # don
-  2: 2, # kat
+  2: 8, # kat
   3: 4, # don finisher
-  4: 6, # kat finisher
+  4: 12, # kat finisher
 }
 
 """
@@ -20,7 +20,7 @@ osu_filename: File name of the generated .osu file. If none, automatically choos
 fields: an optional dictionary containing entries {field_name: value}, to set the field names in postprocessing_helpers.py
         such as "Title".
 """
-def create_osu_file(presence_model, colour_model, finisher_model, audio_filepath, bpm, offset, osu_filename=None, fields={}):
+def create_osu_file(presence_model, colour_model, audio_filepath, bpm, offset, osu_filename=None, fields={}):
     # See https://osu.ppy.sh/wiki/en/Client/File_formats/Osu_%28file_format%29
     bar_len = 60000/bpm
 
@@ -37,8 +37,6 @@ def create_osu_file(presence_model, colour_model, finisher_model, audio_filepath
 
     colour_output = colour_model(audio_windows, torch.unsqueeze(notes_present, dim=0))
     notes_blue = colour_output > 0
-    finisher_output = finisher_model(audio_windows, torch.unsqueeze(notes_present, dim=0))
-    notes_finisher = finisher_output > 0
 
     for field in fields:
         set_values([(field, fields[field])])
@@ -102,7 +100,7 @@ def create_osu_file(presence_model, colour_model, finisher_model, audio_filepath
             if notes_present[snap_num] == False:
                 continue
             time_in_ms = snap_to_ms(bar_len, offset, snap_num)
-            note_type = (1 + notes_blue[snap_num] + 2 * notes_finisher[snap_num]).item()
+            note_type = (1 + notes_blue[snap_num]).item()
             hitsound_number = index_to_hitsound[note_type]
             osu_file.write('{},{},{},{},{},{}\n'.format(
                 ho_params[0], ho_params[1], time_in_ms, ho_params[2], hitsound_number, ho_params[3]))
@@ -118,24 +116,20 @@ if __name__ == "__main__":
     finisher_model = noteFinisherRNN()
     if torch.cuda.is_available():
         presence_model = presence_model.cuda()
-        presence_model.load_state_dict(torch.load('...'), map_location=torch.device('cuda')) # Change me!
+        presence_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
         colour_model = colour_model.cuda()
-        colour_model.load_state_dict(torch.load('...'), map_location=torch.device('cuda')) # Change me!
-        finisher_model = colour_model.cuda()
-        finisher_model.load_state_dict(torch.load('...'), map_location=torch.device('cuda')) # Change me!
+        colour_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
     else:
         presence_model.load_state_dict(
             torch.load('...', map_location=torch.device('cpu'))) # Change me!
         colour_model.load_state_dict(
             torch.load('...', map_location=torch.device('cpu'))) # Change me!
-        finisher_model.load_state_dict(
-            torch.load('...', map_location=torch.device('cpu'))) # Change me!
     print("Model parameters loaded.")
     fields = {}
 
     audio_filepath = "audio.mp3" # Change me!
-    BPM = 200 # Change me!
+    BPM = 150 # Change me!
     offset = 0 # Change me!
 
-    create_osu_file(presence_model, colour_model, finisher_model, 
-            audio_filepath, BPM, offset, osu_filename=None, fields=fields)
+    create_osu_file(presence_model, colour_model, audio_filepath, 
+                    BPM, offset, osu_filename=None, fields=fields)
