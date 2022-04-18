@@ -104,6 +104,25 @@ Having all the mapsets in the ```data/``` directory, run ```preprocessing.py```.
 
 The conversion from spectrogram to spectrogram windows is performed during training time, as we wanted the ability to change the hyperparameter ```window_size``` without preprocessing.
 
+### Data Representation
+Each map in the dataset is represented by three of files:
+- ```audio_data.npy```: This file contains the spectrogram (not split into windows), which is a numpy array of size ```[L, n_mels]```, where ```L``` is the length of the song in milliseconds.
+- ```timing_data.json```: This is a json object containing keys ```offset``` and ```bar_len```. These values are not used within the models, but they are used for data preprocessing and are required to construct spectrogram windows from the spectrogram.
+- ```notes_data.npy```: This contains the sequences of notes, as a numpy array of length ```N```. Each entry in the array is an integer from 0-4; the integer values are mapped to the note type as follows (note that finisher notes are deprecated but remain as a code artefact; see the [Model](#model) section above):
+
+<div align="center">
+  
+| # | Note Type    |
+|---|--------------|
+| 0 | None         |
+| 1 | Don          |
+| 2 | Kat          |
+| 3 | Don Finisher |
+| 4 | Kat Finisher |
+  
+</div>
+
+
 ### Data Summary
 There are a total of 2795 ranked mapsets from 2013-2021 containing a difficulty from Kantan, Futsuu, Muzukashii, and Oni. In total, there are 9113 such Taiko difficulties. However, not all mapsets are processable by our model, due to issues as mentioned previously. In total (using ```get_npy_stats.py```), there are only 5887 difficulties that are usable in our dataset.
 
