@@ -89,6 +89,8 @@ successful and unsuccessful example
 ### Source
 We have downloaded a dump of "ranked" Taiko mapsets from [this osu! forum post](https://osu.ppy.sh/community/forums/topics/330552?n=1). An uploaded *osu!* mapset can become ranked after passing a quality assurance process. We chose to only use ranked mapsets from 2013-2021 to assure data quality, as older mapsets tend to have poorer quality due to the lax quality assurance criteria at the time. 
 
+While training the model, we choose a difficulty out of Kantan, Futsuu, Muzukashii, and Oni, in hopes of encouraging the model to produce maps with an appropriate difficulty level. Our final model is trained on the Kantan difficulty, but you may choose to train a Futsuu, Muzukashii, or Oni model separately if needed.
+
 ### Preprocessing
 *Prerequirement: an existing osu! installation. Go to the [osu! website](https://osu.ppy.sh/home/download) to install osu!. This probably requires a Windows machine.*
 
