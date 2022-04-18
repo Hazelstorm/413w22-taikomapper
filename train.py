@@ -1,8 +1,7 @@
 from email.mime import audio
 import torch
-from torch import nn
 from torch.utils.data import Dataset, DataLoader
-import os, copy
+import os
 import tqdm
 import matplotlib.pyplot as plt
 from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
@@ -18,14 +17,19 @@ train_losses = []
 val_losses = []
 val_iters = []
 
+# Locations for dumping the training/validation curves in a .csv file
 train_loss_dump = open('losses.csv','a', encoding='utf8')
 val_loss_dump = open('validation.csv','a', encoding='utf8')
 
 SEED = 88 # Random seed used during training time to shuffle dataset
 
-
+"""
+Creates a plot of the training/validation losses.
+<val_iters>: Iterations where the validation losses are evaluated. For example,
+             if validation loss is evalutaed every 10 epochs, val_iters=[0, 10, 20, ...]
+"""
 def plot(train_losses, val_losses, val_iters):
-    plt.title(f"RNN Hyperparameter Tuning")
+    plt.title(f"Loss Curves")
     plt.plot(train_losses, label=f"Training Loss")
     plt.plot(val_iters, val_losses, label=f"Validation Loss")
     plt.legend()
@@ -33,7 +37,10 @@ def plot(train_losses, val_losses, val_iters):
     plt.ylabel("Loss")
     plt.show()
 
-"""Outputs the losses into a csv file."""
+"""
+Outputs the training/validation losses into a csv file.
+The training and validation loss is dumped into train_loss_dump and val_loss_dump respectively.
+"""
 def dump_losses(train_losses, val_losses, val_iters, graph_name):
     global train_loss_dump, val_loss_dump
     
@@ -52,7 +59,10 @@ def dump_losses(train_losses, val_losses, val_iters, graph_name):
     for j, k in zip(val_losses, val_iters):
         val_writer.writerow([j,k])
 
-"""Plots training and validation loss, even upon keyboard interrupt."""
+"""
+Enable this signal handler to plots training and validation loss upon keyboard interrupt.
+Useful if you want to stop training.
+"""
 def signal_handler(sig, frame):
     global train_losses, val_losses, val_iters
     plot(train_losses, val_losses, val_iters)
@@ -60,6 +70,7 @@ def signal_handler(sig, frame):
     train_loss_dump.close()
     val_loss_dump.close()
     sys.exit(0)
+
 
 # Model computation signatures
 def model_compute_note_presence(model: notePresenceRNN, audio_windows, notes_data):
@@ -74,7 +85,8 @@ def model_compute_note_finisher(model: noteFinisherRNN, audio_windows, notes_dat
 
 # Data Loader
 TRAIN_PATH = os.path.join("data", "npy", "kantan")
-SPLIT = [0.15, 0.175] # where to split the training set into train:valid:tes
+# Where to split the training set into train/validation/test
+SPLIT = [0.8, 0.9] 
 
 class MapDataset(Dataset): 
     def __init__(self, start, stop):
@@ -95,8 +107,9 @@ class MapDataset(Dataset):
         return audio_data, timing_data, notes_data
 
 
+# Loss functions for each model
 note_presence_weight = 5 
-note_finisher_weight = 5
+note_finisher_weight = 3
 
 """
 Compute the average ratio of present notes to non-present notes on snaps, and update
@@ -114,8 +127,6 @@ def compute_note_presence_weight():
     global note_presence_weight
     note_presence_weight = total_no_notes / total_notes
 
-
-# Loss functions for each model
 def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
     pos_weight = torch.tensor(pos_weight)
@@ -126,7 +137,7 @@ def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight
     return loss
 
 def note_colour_loss(model_output, notes_data):
-    # filter out all zero entries in notes_data, and also filter the same entries in model_output
+    # Filter out all zero entries in notes_data, and also filter the same entries in model_output
     nonzero_entries = notes_data > 0
     notes_data = notes_data[nonzero_entries]
     model_output = model_output[nonzero_entries]
@@ -155,19 +166,24 @@ def note_finisher_loss(model_output, notes_data, pos_weight=note_finisher_weight
 """
 Trains the RNN.
 Arguments:
-- checkpoint_path: path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
-- plot: Plot the training and validation curves.
-- augment_noise: Determines how much noise is added to each audio spectrogram. Setting this to None prevents adding noise.
+- model_compute: The forward function for model (model_compute_note_presence, model_compute_note_colour, model_compute_note_finisher).
+- criterion: The loss function for the model (note_presence_loss, note_colour_loss, note_finisher_loss).
+- num_epochs: Number of epochs to train this model for.
+- lr: Learning rate.
+- wd: Weight decay (regularization).
+- checkpoint_path: Path to save checkpoint files. {} needs to appear to store the iteration number (e.g. "ckpt-{}.pt").
+- augment_noise: Determines how much noise is added to each audio spectrogram. Setting this to None adds no noise.
+- compute_valid_loss_every: Validation loss is computed every <compute_valid_loss_every> epochs.
 """
-def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_rate=1e-3, wd=0, 
-    checkpoint_path=None, plot=False, augment_noise=None):
-    print(f"Beginning training (lr={learning_rate})")
-    
+def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, wd=0, 
+    checkpoint_path=None, augment_noise=None, compute_valid_loss_every=10):
+    print(f"Beginning training (lr={lr}).")
+
+    # Reset arrays used for plotting
     global train_losses
     global val_losses
     global val_iters
-    
-    # Reset plot arrays
+
     train_losses = []
     val_losses = []
     val_iters = []
@@ -176,9 +192,9 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
     val_dataset = MapDataset(SPLIT[0], SPLIT[1])
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=wd)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
 
-    # training loop
+    # Main training loop
     for epoch_num in range(num_epochs):
         train_loss = []
         model.train() 
@@ -189,9 +205,12 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
                 notes_data = notes_data.cuda()
                 
             optimizer.zero_grad()
+            
+            # train_loader provides a spectrogram. We convert this spectrogram into audio windows around each snap.
             bar_len = timing_data["bar_len"].item()
             offset = timing_data["offset"].item()
-            audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), bar_len, offset, hyper_param.window_size)
+            audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), 
+                                    bar_len, offset, hyper_param.window_size)
             audio_windows = torch.flatten(audio_windows, start_dim=1)
             if augment_noise:
                 if torch.cuda.is_available():
@@ -199,6 +218,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
                 else:
                     noise = torch.normal(0,augment_noise,size=audio_windows.size())
                 audio_windows += noise
+    
             model_out = model_compute(model, audio_windows, notes_data)
             notes_data = torch.squeeze(notes_data, dim=0)
             model_loss = criterion(model_out, notes_data)
@@ -209,8 +229,8 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
         train_loss = sum(train_loss) / len(train_loss)
         train_losses.append(train_loss)
             
-        # validation loss
-        if (epoch_num % 1 == 0):
+        # Compute validation loss
+        if (epoch_num % compute_valid_loss_every == 0):
             model.eval()
             val_loss = []
             with torch.no_grad(): # disable gradient computation to save memory
@@ -239,16 +259,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, learning_
                   f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}")
     
         if checkpoint_path and (epoch_num % 5) == 0:
-            torch.save(model.state_dict(), checkpoint_path.format(epoch_num,learning_rate))
-    
-    if plot:
-        plt.title("RNN Tuning - lr={}, wd={}, noise={}".format(learning_rate, wd, augment_noise))
-        plt.plot(train_losses, label=f"Training Loss")
-        plt.plot(val_iters, val_losses, label=f"Validation Loss")
-        plt.legend()
-        plt.xlabel("Iteration")
-        plt.ylabel("Loss")
-        plt.show()
+            torch.save(model.state_dict(), checkpoint_path.format(epoch_num,lr))
 
     return train_losses, val_losses, val_iters
 
@@ -256,75 +267,43 @@ if __name__ == "__main__":
     print("Computing note presence weight...")
     compute_note_presence_weight()
     signal.signal(signal.SIGINT, signal_handler) # Plot upon SIGINT
+
     checkpoint_dir = "checkpoints"
     if not (os.path.isdir("checkpoints")):
         os.mkdir("checkpoints")
-
 
     # Train notePresenceRNN
     # presence_model = notePresenceRNN()
     # if torch.cuda.is_available():
     #     presence_model = presence_model.cuda()
-    # # presence_model.load_state_dict(torch.load("..."))
-    # train_losses, val_losses, val_iters = train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
-    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
-    #     plot=True, augment_noise=5)
+    #     presence_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
+    # presence_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
+    # train_losses, val_losses, val_iters = \
+    #     train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
+    #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
+    #             augment_noise=5, compute_valid_loss_every=1)
     # dump_losses(train_losses, val_losses, val_iters)
-    
-    presence_model = notePresenceRNN()
-    if torch.cuda.is_available():
-        presence_model = presence_model.cuda()
-
-    for lr in [1e-4,1e-5,1e-6]:
-        for wd in [1e-2, 1e-4, 0]:
-            for augment_noise in [None, 0.05, 0.5, 5]:
-                model_cop = copy.deepcopy(presence_model)
-                model_cop.rnn.flatten_parameters()
-                train_losses, val_losses, val_iters = train_rnn_network(model_cop, model_compute_note_presence, note_presence_loss, 
-                                                                        learning_rate=lr, num_epochs=1, wd=wd, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}-lr={}-wd={},var={}.pt".format("{}","{}",wd,augment_noise),
-                                                                        plot=True, augment_noise=augment_noise)
-                plt.plot(train_losses, label=f"Training Loss (lr={lr}, wd={wd}, noise={augment_noise})")
-                plt.plot(val_iters, val_losses, label=f"Validation Loss (lr={lr}, wd={wd}, noise={augment_noise})")
-                
-                dump_losses(train_losses, val_losses, val_iters, f"lr={lr}, wd={wd}, noise={augment_noise}")
-                
-    plt.title(f"notePresenceBidirectionalRNN Hyperparameter Tuning")
-    plt.legend()
-    plt.xlabel("Iteration")
-    plt.ylabel("BCE Loss")
-    
     
     # Train noteColourRNN
     # colour_model = noteColourRNN()
     # if torch.cuda.is_available():
     #     colour_model = colour_model.cuda()
-    # colour_model.load_state_dict(torch.load("..."))
-    # train_losses, val_losses, val_iters = train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, 
-    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteColourRNN-iter{}.pt", 
-    #     plot=True, augment_noise=5)
+    #     colour_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
+    # colour_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
+    # train_losses, val_losses, val_iters = \
+    #     train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, 
+    #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteColourRNN-iter{}.pt", 
+    #             augment_noise=5, compute_valid_loss_every=1)
     # dump_losses(train_losses, val_losses, val_iters)
 
-<<<<<<< HEAD
     # Train noteFinisher
-    finisher_model = noteFinisherRNN()
-    if torch.cuda.is_available():
-        finisher_model = finisher_model.cuda()
-    finisher_model.load_state_dict(torch.load("noteFinisherRNN-iter20.pt"))
-    # train_losses, val_losses, val_iters = train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
-    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
-    #     plot=True, augment_noise=5)
-    train_losses, val_losses, val_iters = train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
-        learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
-        plot=True, augment_noise=10)
-    dump_losses(train_losses, val_losses, val_iters)
-=======
-    # # Train noteFinisher
     # finisher_model = noteFinisherRNN()
     # if torch.cuda.is_available():
     #     finisher_model = finisher_model.cuda()
-    # # finisher_model.load_state_dict(torch.load("..."))
-    # train_losses, val_losses, val_iters = train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
-    #     learning_rate=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
-    #     plot=True, augment_noise=5)
+    #     finisher_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
+    # finisher_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
+    # train_losses, val_losses, val_iters = \
+    #     train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
+    #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
+    #             augment_noise=5, compute_valid_loss_every=1)
     # dump_losses(train_losses, val_losses, val_iters)
->>>>>>> e13ff8115b682a742c5cbc20c1e03aa8afd3d64c
