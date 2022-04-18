@@ -11,7 +11,7 @@ class notePresenceRNN(nn.Module):
         super().__init__()
         self.emb_size = emb_size
         self.hidden_size = hidden_size
-        self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH, self.emb_size)
+        self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH + hyper_param.snap, self.emb_size)
         self.rnn = nn.GRU(input_size=emb_size, hidden_size=self.hidden_size, bidirectional=True)
         self.fc = nn.Linear(self.hidden_size * 2, 1)
     
@@ -30,7 +30,7 @@ class noteColourRNN(nn.Module):
         super().__init__()
         self.emb_size = emb_size
         self.hidden_size = hidden_size
-        self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH + 1, self.emb_size)
+        self.embedding = nn.Linear(hyper_param.n_mels*WINDOW_LENGTH + 1 + hyper_param.snap, self.emb_size)
         self.rnn = nn.GRU(input_size=emb_size, hidden_size=self.hidden_size, bidirectional=True)
         self.fc = nn.Linear(self.hidden_size * 2, 1)
     

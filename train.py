@@ -211,7 +211,6 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
             offset = timing_data["offset"].item()
             audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), 
                                     bar_len, offset, hyper_param.window_size)
-            audio_windows = torch.flatten(audio_windows, start_dim=1)
             if augment_noise:
                 if torch.cuda.is_available():
                     noise = torch.normal(0,augment_noise,size=audio_windows.size()).cuda()

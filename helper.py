@@ -79,6 +79,17 @@ def ms_to_snap(bar_len, offset, ms, snap_val=hyper_param.snap):
     error = abs(snap_num - round(snap_num))
     if error < 0.02 * hyper_param.snap:
         return round(snap_num)
+    
+"""
+Convert indicies into one-hot vectors by
+    1. Creating an identity matrix of shape [total, total]
+    2. Indexing the appropriate columns of that identity matrix
+"""
+def make_onehot(indicies):
+    I = torch.eye(hyper_param.snap)
+    if torch.cuda.is_available():
+        I = I.cuda()
+    return I[indicies]
 
 """
 Pulls from the spectrogram severals window of audio centered at each snapped ms of the audio with a window of <win_size> ms added on either side.
@@ -96,6 +107,7 @@ def get_audio_around_snaps(spectro, bar_len, offset, win_size):
     padded_spectro = pad(spectro, pad=(0, 0, win_size, win_size), value=torch.min(spectro)) # pad the spectro on each side with minimum values
     num_snaps = get_num_snaps(bar_len, offset, spectro.shape[0])
     indices = snap_to_ms(bar_len, offset, np.arange(num_snaps))
+    index_num = make_onehot(torch.arange(num_snaps) % hyper_param.snap)
     
     audio_windows = torch.zeros([num_snaps, 0, hyper_param.n_mels]) # [indices, win_length, 40]
     if torch.cuda.is_available():
@@ -106,6 +118,9 @@ def get_audio_around_snaps(spectro, bar_len, offset, win_size):
         audio_slices = padded_spectro[indices + i, :]
         audio_slices = torch.unsqueeze(audio_slices, 1)
         audio_windows = torch.cat([audio_windows, audio_slices], axis=1)
+        
+    audio_windows = torch.flatten(audio_windows, start_dim=1)
+    audio_windows = torch.cat([audio_windows, index_num], axis=1)
         
     return audio_windows
 
