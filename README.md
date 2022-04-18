@@ -180,7 +180,7 @@ Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning 
 
 ## Training and Results
 
-As mentioned in [Tuning](#tuning), we've trained ```notePresenceRNN``` with ```lr=1e-5, wd=0, augment_noise=5``` until it started overfitting (epoch 20), then switched to  ```lr=1e-5, wd=0, augment_noise=10```until the training loss plateaued, and then finished with ```lr=1e-6, wd=0, augment_noise=10```. 
+As mentioned in [Tuning](#tuning), we've trained ```notePresenceRNN``` with ```lr=1e-5, wd=0, augment_noise=5``` until it started overfitting (epoch 20), then switched to  ```lr=1e-5, wd=0, augment_noise=10``` until the training loss plateaued, and then finished with ```lr=1e-6, wd=0, augment_noise=10```. 
 
 ### Justification for Choice of Model
 Since creating a Taiko map is a seq2seq problem (audio file to sequence of notes), we have opted to use RNNs. However, in human-made Taiko maps, there tend to be some simple predefined patterns such as the "triple" (three consecutive notes spaced 1/4 apart). However, Taiko maps also have more complicated structures such as "break sections" where there are no notes (and the player waits and listen to the music until the break section ends, where they start playing again). Thus, having the model learn long-term dependencies would be preferrable, which is why we've opted to use a GRU. The GRU is bidirectional, as in Taiko, note placement should be made accordingly with notes in the future, as well as notes from the past. For example, if the model sees that there is a note exactly one snap away from the current snap, the model should refrain from placing a note on the current snap, unless the model wants to form a pattern of notes such as the triple.
