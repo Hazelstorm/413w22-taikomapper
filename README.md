@@ -314,3 +314,4 @@ David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote the original code for ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Wrote ```get_npy_stats.py``` to obtain statistics on the dataset.
 - Performed the grid search for ```noteColourRNN``` hyperparameters on his computer (RTX 3070).
+- Attempted to train the ```noteFinisherRNN``` (but the result was not good).
