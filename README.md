@@ -195,7 +195,7 @@ To play the map:
 - Go to the *osu!* song selection screen.
 - (Press F5 to refresh the song list.)
 - Change the *Sort* value in the top-right to *By Date Added*, using the drop-down menu. Scroll to the bottom of the song selection menu, and select the created mapset.
-- Press enter to play the map, or use the "Auto Mod" to make *osu!* play the map using a bot (F1 -> click on the "Auto" icon -> Esc).  
+- Press enter to play the map. You may choose to use the "Auto Mod" to make *osu!* play the map using a bot (F1 -> click on the "Auto" icon -> Esc).  
 
 ### Qualitative Evaluation
 
