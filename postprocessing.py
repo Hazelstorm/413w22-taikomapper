@@ -130,8 +130,8 @@ if __name__ == "__main__":
         presence_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
         colour_model = colour_model.cuda()
         colour_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
-        finisher_model = colour_model.cuda()
-        finisher_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
+        # finisher_model = colour_model.cuda()
+        # finisher_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
     else:
         presence_model.load_state_dict(
             torch.load('...', map_location=torch.device('cpu'))) # Change me!
