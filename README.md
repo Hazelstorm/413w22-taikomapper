@@ -243,6 +243,8 @@ We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taik
 
 Overfitting ```notePresenceRNN``` to the first map, we have reached a training loss of 0.2327. Computing its loss on the second map, we obtain 0.5145. As for ```noteColourRNN```, it reached a training loss of 0.2268, and its loss on the second map is 0.7136. Thus, the best case loss for ```notePresenceRNN``` and ```noteColourRNN``` are approximately 0.5 and 0.7 respectively.
 
+Our final ```notePresenceRNN``` model achieved a validation loss of 0.68, which is still considerably higher than the best-case loss of 0.5. On the other hand, ```noteColourRNN``` achieved a validation loss of 0.68, which is actually lower compared to the best-case loss of 0.7, so indeed our ```noteColourRNN``` matches human performance. This interpretation should be taken with caution though, as the best-case loss of 0.7 was calculated between two maps only.
+
 ### Qualitative Evaluation
 
 We've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
