@@ -84,7 +84,7 @@ def model_compute_note_finisher(model: noteFinisherRNN, audio_windows, notes_dat
 
 
 # Data Loader
-TRAIN_PATH = os.path.join("data", "npy", "kantan")
+TRAIN_PATH = os.path.join("data", "npy", "oni")
 # Where to split the training set into train/validation/test
 SPLIT = [0.8, 0.9] 
 
@@ -107,13 +107,9 @@ class MapDataset(Dataset):
         return audio_data, timing_data, notes_data
 
 
-# Loss functions for each model
-note_presence_weight = 5 
-note_finisher_weight = 3
 
 """
-Compute the average ratio of present notes to non-present notes on snaps, and update
-note_presence_weight accordingly.
+Compute the average ratio of present notes to non-present notes on snaps
 """
 def compute_note_presence_weight():
     train_dataset = MapDataset(0, SPLIT[0])
@@ -124,10 +120,25 @@ def compute_note_presence_weight():
         notes, no_notes = helper.get_note_ratio(notes_data)
         total_notes += notes
         total_no_notes += no_notes
-    global note_presence_weight
     note_presence_weight = total_no_notes / total_notes
+    return note_presence_weight
 
-def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight):
+"""
+Compute the average ratio of finisher notes to non-finisher notes on snaps
+"""
+def compute_note_finisher_weight():
+    train_dataset = MapDataset(0, SPLIT[0])
+    train_loader = DataLoader(train_dataset)
+    total_finishers = 0
+    total_no_finishers = 0
+    for _, _, notes_data in train_loader:
+        finishers, no_finishers = helper.get_finisher_ratio(notes_data)
+        total_finishers += finishers
+        total_no_finishers += no_finishers
+    note_finisher_weight = total_no_finishers / total_finishers
+    return note_finisher_weight
+
+def note_presence_loss(model_output, notes_data, pos_weight):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
     pos_weight = torch.tensor(pos_weight)
     if torch.cuda.is_available():
@@ -136,7 +147,7 @@ def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight
     loss = bce(model_output, nonzero_notes)
     return loss
 
-def note_colour_loss(model_output, notes_data):
+def note_colour_loss(model_output, notes_data, pos_weight):
     # Filter out all zero entries in notes_data, and also filter the same entries in model_output
     nonzero_entries = notes_data > 0
     notes_data = notes_data[nonzero_entries]
@@ -148,7 +159,7 @@ def note_colour_loss(model_output, notes_data):
     loss = bce(model_output, kat_notes)
     return loss
 
-def note_finisher_loss(model_output, notes_data, pos_weight=note_finisher_weight):
+def note_finisher_loss(model_output, notes_data, pos_weight):
     nonzero_entries = notes_data > 0
     notes_data = notes_data[nonzero_entries]
     model_output = model_output[nonzero_entries]
@@ -162,7 +173,6 @@ def note_finisher_loss(model_output, notes_data, pos_weight=note_finisher_weight
     loss = bce(model_output, finisher_notes)
     return loss
 
-
 """
 Trains the RNN.
 Arguments:
@@ -175,7 +185,7 @@ Arguments:
 - augment_noise: Determines how much noise is added to each audio spectrogram. Setting this to None adds no noise.
 - compute_valid_loss_every: Validation loss is computed every <compute_valid_loss_every> epochs.
 """
-def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, wd=0, 
+def train_rnn_network(model, model_compute, criterion, pos_weight, num_epochs=100, lr=1e-3, wd=0, 
     checkpoint_path=None, augment_noise=None, compute_valid_loss_every=10):
     print(f"Beginning training (lr={lr}).")
 
@@ -220,7 +230,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
     
             model_out = model_compute(model, audio_windows, notes_data)
             notes_data = torch.squeeze(notes_data, dim=0)
-            model_loss = criterion(model_out, notes_data)
+            model_loss = criterion(model_out, notes_data, pos_weight)
             model_loss.backward()
             optimizer.step()
             train_loss.append(model_loss.item())
@@ -244,7 +254,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
                     model_out = model_compute(model, audio_windows, notes_data)
                     model_out = torch.squeeze(model_out, dim=0)
                     notes_data = torch.squeeze(notes_data, dim=0)
-                    model_loss = criterion(model_out, notes_data)
+                    model_loss = criterion(model_out, notes_data, pos_weight)
                     val_loss.append(model_loss.item())
             val_loss = sum(val_loss) / len(val_loss)
             val_losses.append(val_loss)
@@ -263,8 +273,12 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
     return train_losses, val_losses, val_iters
 
 if __name__ == "__main__":
-    print("Computing note presence weight...")
-    compute_note_presence_weight()
+    
+    # Loss functions for each model
+    print("Computing loss weights")
+    note_presence_weight = compute_note_presence_weight()
+    note_finisher_weight = compute_note_finisher_weight()
+    
     signal.signal(signal.SIGINT, signal_handler) # Plot upon SIGINT
 
     checkpoint_dir = "checkpoints"
@@ -278,7 +292,7 @@ if __name__ == "__main__":
     #     presence_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
     # presence_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
-    #     train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
+    #     train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, note_presence_weight, 
     #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
     #             augment_noise=5, compute_valid_loss_every=1)
     # dump_losses(train_losses, val_losses, val_iters)
@@ -290,7 +304,7 @@ if __name__ == "__main__":
     #     colour_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
     # colour_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
-    #     train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, 
+    #     train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, None,
     #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteColourRNN-iter{}.pt", 
     #             augment_noise=5, compute_valid_loss_every=1)
     # dump_losses(train_losses, val_losses, val_iters)
@@ -302,7 +316,7 @@ if __name__ == "__main__":
     #     finisher_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
     # finisher_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
-    #     train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
+    #     train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, note_finisher_weight,
     #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
     #             augment_noise=5, compute_valid_loss_every=1)
     # dump_losses(train_losses, val_losses, val_iters)
