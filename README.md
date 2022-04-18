@@ -220,6 +220,16 @@ For ```noteColourRNN```, we've trained with ```lr=1e-6, wd=0, augment_noise=15``
   <img src="/images/noteColourRNN_training_curve.png" alt="Training Curve for noteColourRNN" width="1000"/>
 </p>
 
+### Quantitative Evaluation
+
+As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
+
+We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taiko/823014) and [here](https://osu.ppy.sh/beatmapsets/1022420#taiko/2665992), Kantan difficulty for both) to compare. Since BCE only allows us to compare a probability sequence with the ground truth (as opposed to ground truth with ground truth), we instead decided to overfit our models to the first, and then compute the loss of the model on the second map.
+
+Overfitting ```notePresenceRNN``` to the first map, we have reached a training loss of 0.2327. Computing its loss on the second map, we obtain 0.5145. As for ```noteColourRNN```, it reached a training loss of 0.2268, and its loss on the second map is 0.7136. Thus, the best case loss for ```notePresenceRNN``` and ```noteColourRNN``` are approximately 0.5 and 0.7 respectively.
+
+Our final ```notePresenceRNN``` model achieved a validation loss of 0.68, which is still considerably higher than the best-case loss of 0.5. On the other hand, ```noteColourRNN``` achieved a validation loss of 0.68, which is actually lower compared to the best-case loss of 0.7, so indeed our ```noteColourRNN``` matches human performance. This interpretation should be taken with caution though, as the best-case loss of 0.7 was calculated between two maps only.
+
 ### Converting to *osu!* maps
 
 Given a .mp3 audio file and the song's BPM and offset, ```postprocessing.py``` uses the three (trained) models to produce a .osu file, containing an *osu!Taiko* map for the given song. Again, only constant-tempo songs are supported by our model; you may use an audio editor to find the offset, and use an online tool such as [Tunebat](https://tunebat.com/Analyzer) to find the BPM. To use ```postprocessing.py```, edit the ```load_state_dict()``` calls at the bottom of ```postprocessing.py``` to load the trained state dictionaries for each of ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN```. Change the variables ```audio_filepath```, ```BPM```, and ```offset``` appropriately, and run ```postprocessing.py```. By default, the created .osu file should be located at ```- <mp3_filename> (TaikoMapper) [Taiko].osu.``` in the same directory.
@@ -234,16 +244,6 @@ To play the map:
 - (Press F5 to refresh the song list.)
 - Change the *Sort* value in the top-right to *By Date Added*, using the drop-down menu. Scroll to the bottom of the song selection menu, and select the created mapset.
 - Press enter to play the map. You may choose to use the "Auto Mod" to make *osu!* play the map using a bot (F1 -> click on the "Auto" icon -> Esc).  
-
-### Quantitative Evaluation
-
-As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
-
-We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taiko/823014) and [here](https://osu.ppy.sh/beatmapsets/1022420#taiko/2665992), Kantan difficulty for both) to compare. Since BCE only allows us to compare a probability sequence with the ground truth (as opposed to ground truth with ground truth), we instead decided to overfit our models to the first, and then compute the loss of the model on the second map.
-
-Overfitting ```notePresenceRNN``` to the first map, we have reached a training loss of 0.2327. Computing its loss on the second map, we obtain 0.5145. As for ```noteColourRNN```, it reached a training loss of 0.2268, and its loss on the second map is 0.7136. Thus, the best case loss for ```notePresenceRNN``` and ```noteColourRNN``` are approximately 0.5 and 0.7 respectively.
-
-Our final ```notePresenceRNN``` model achieved a validation loss of 0.68, which is still considerably higher than the best-case loss of 0.5. On the other hand, ```noteColourRNN``` achieved a validation loss of 0.68, which is actually lower compared to the best-case loss of 0.7, so indeed our ```noteColourRNN``` matches human performance. This interpretation should be taken with caution though, as the best-case loss of 0.7 was calculated between two maps only.
 
 ### Qualitative Evaluation
 
