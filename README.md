@@ -1,7 +1,7 @@
 # TaikoMapper
 An *osu!Taiko* Map Generator. Created as a final project for CSC413H5 Winter 2022 at the University of Toronto Mississauga.
 
-*Dependencies: Python 3.8, librosa, ffmpeg, pydub, PyTorch.*
+*Dependencies: Python 3.8, librosa, ffmpeg, pydub, PyTorch, tqdm.*
 
 ## Introduction
 
