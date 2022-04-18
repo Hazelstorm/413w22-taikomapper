@@ -182,7 +182,7 @@ Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning 
 
 As mentioned in [Tuning](#tuning), we've trained ```notePresenceRNN``` with ```lr=1e-5, wd=0, augment_noise=5``` until it started overfitting (epoch 20), then switched to  ```lr=1e-5, wd=0, augment_noise=10```until the training loss plateaued, and then finished with ```lr=1e-6, wd=0, augment_noise=10```. 
 
-### Qualitative evaluation
+### Converting to *osu!* maps
 
 Given a .mp3 audio file and the song's BPM and offset, ```postprocessing.py``` uses the three (trained) models to produce a .osu file, containing an *osu!Taiko* map for the given song. Again, only constant-tempo songs are supported by our model; you may use an audio editor to find the offset, and use an online tool such as [Tunebat](https://tunebat.com/Analyzer) to find the BPM. To use ```postprocessing.py```, edit the ```load_state_dict()``` calls at the bottom of ```postprocessing.py``` to load the trained state dictionaries for each of ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN```. Change the variables ```audio_filepath```, ```BPM```, and ```offset``` appropriately, and run ```postprocessing.py```. By default, the created .osu file should be located at ```- <mp3_filename> (TaikoMapper) [Taiko].osu.``` in the same directory.
 
@@ -196,6 +196,12 @@ To play the map:
 - (Press F5 to refresh the song list.)
 - Change the *Sort* value in the top-right to *By Date Added*, using the drop-down menu. Scroll to the bottom of the song selection menu, and select the created mapset.
 - Press enter to play the map, or use the "Auto Mod" to make *osu!* play the map using a bot (F1 -> click on the "Auto" icon -> Esc).  
+
+### Qualitative Evaluation
+
+We've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. We hypothesize a few reasons for this behaviour:
+- Low-intensity sections of music tend to have less percussion and more melodic elements. On the other hand, ```notePresenceRNN``` seems to focus on the percussion element of music, so the model could struggle when percussion is not present. Furthermore, we've limited ```fmax```, the max frequency for the spectrogram, to 5000 Hz; this upper cap of frequency may not be enough low-intensity sections which usually have treble.
+- In human-made Taiko maps, there are sometimes "break sections", where there are no notes (and the player waits and listen to the music until the break section ends, where they start playing again). Our model has occassionally placed "break sections", albeit most of the time there are a handful of notes in the break section. We see this as an attempt by the model to imitate the human break section, but an incorrectly-placed break section can be penalized heavily by our loss (predicting no note when there is a note is penalized heavily).
 
 
 ## Ethical Considerations
