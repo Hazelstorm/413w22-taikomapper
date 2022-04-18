@@ -292,12 +292,13 @@ Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)):
 - Wrote most of the helper functions in ```helper.py```.
 - Wrote a transformer model for this task (```transformer.py``` in older commits). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
 - Proposed different models that could solve this problem.
+- Performed surveying of BNs.
 
 Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Created the preprocessing code (with Sloan).
 - Helped write some of the helper functions in ```helper.py```.
 - Helped David with postprocessing.py
-- Trained the ```notePresenceRNN``` models on her computer (RTX 3080 Ti).
+- Trained the ```notePresenceRNN``` and ```noteColourRNN``` models on her computer (RTX 3080 Ti).
 - Wrote code to export the training curves to .csv files.
 
 Paul Zhang ([@sjorv](https://github.com/sjorv)): 
@@ -312,4 +313,4 @@ Paul Zhang ([@sjorv](https://github.com/sjorv)):
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote the original code for ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Wrote ```get_npy_stats.py``` to obtain statistics on the dataset.
-- Trained the ```noteColourRNN``` and ```noteFinisherRNN``` models on his computer (RTX 3070).
+- Performed the grid search for ```noteColourRNN``` hyperparameters on his computer (RTX 3070).
