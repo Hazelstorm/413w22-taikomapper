@@ -174,7 +174,7 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 |![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
-Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```. Similar to ```notePresenceRNN```, we've decided to train ```noteColourRNN``` using ```lr=1e-5, wd=0, augment_noise=5``` until the validation loss plateaus, and then switch to ```lr=1e-5, wd=0, augment_noise=10``` until the training loss plateaus, then switch to ```lr=1e-6```. 
+Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```. Similar to ```notePresenceRNN```, we've decided to train ```noteColourRNN``` using ```lr=1e-5, wd=0, augment_noise=5``` until the validation loss plateaus. We then train it using ```lr=1e-6``` for a short while, until the validation loss plateaus again.
 
 Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. Since it is architecturally similar to ```noteColourRNN```, we train it in the same manner.
 
