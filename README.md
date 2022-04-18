@@ -245,4 +245,4 @@ Paul Zhang ([@sjorv](https://github.com/sjorv)):
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote the original code for ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Wrote ```get_npy_stats.py``` to obtain statistics on the dataset.
-- Trained the ```noteColourRNN``` and ```noteFinisherRNN``` model on his computer (RTX 3070).
+- Trained the ```noteColourRNN``` and ```noteFinisherRNN``` models on his computer (RTX 3070).
