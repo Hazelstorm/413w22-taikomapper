@@ -7,9 +7,9 @@ import hyper_param
 index_to_hitsound = { \
   # index in model, hitsound in .osu file
   1: 0, # don
-  2: 2, # kat
+  2: 8, # kat
   3: 4, # don finisher
-  4: 6, # kat finisher
+  4: 12, # kat finisher
 }
 
 """
