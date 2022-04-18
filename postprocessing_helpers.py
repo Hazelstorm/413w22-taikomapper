@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-##### Default Values ####
+"""These are the default field names that are written to the .osu file."""
 # GeneralValues
 AudioFilename = "audio.mp3"
 AudioLeadIn = "0"
@@ -28,9 +28,9 @@ Tags = ""
 BeatmapID = "0"
 BeatmapSetID = "-1"
 # DifficultyValues
-HPDrainRate = "5" # 8,7,6,5 for kantan, futsuu, muzu, oni diffs respectively
+HPDrainRate = "8" # Recommended: 8,7,6,5 for kantan, futsuu, muzu, oni diffs respectively
 CircleSize = "2"
-OverallDifficulty = "5" # 2,3,4,5 for kantan, futsuu, muzu, oni diffs respectively
+OverallDifficulty = "2" # Recommended: 2,3,4,5 for kantan, futsuu, muzu, oni diffs respectively
 ApproachRate = "10"
 SliderMultiplier = "1.4"
 SliderTickRate = "1"
@@ -101,8 +101,8 @@ current_vals = {
 """
 Sets current parameters for song data, overwriting default data.
 
-    Parameters:
-        pairs (list of tuple): A list containing all the changes to be made to the parameters
+Parameters:
+    pairs (list of tuple): A list containing all the changes to be made to the parameters
 """
 def set_values(pairs):
     global current_vals
@@ -171,7 +171,7 @@ def get_difficulty_param():
     return d
 
 """
-Returns all key value pairs for TimingPoints paramters
+Returns all key value pairs for TimingPoints parameters.
 """
 def get_timing_point_param():
     global current_vals
@@ -201,7 +201,7 @@ def get_hit_objects_param():
     return ret
 
 """
-Returns event values
+Returns event values.
 """
 def get_event_values(): 
     global current_vals
