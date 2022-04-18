@@ -109,21 +109,35 @@ def create_osu_file(presence_model, colour_model, audio_filepath, bpm, offset, o
 
 if __name__ == "__main__":
     import torch
+
+    # To replace the deprecated noteFinisherRNN model
+    class noFinisher(torch.nn.Module):
+        def forward(self, audio_windows, notes_data):
+            out = torch.zeros_like(notes_data)
+            out = torch.squeeze(out, dim=0)
+            return out
+
     from rnn import notePresenceRNN, noteColourRNN, noteFinisherRNN
     print("Loading state dicts...")
     presence_model = notePresenceRNN()
     colour_model = noteColourRNN()
-    finisher_model = noteFinisherRNN()
+    # finisher_model = noteFinisherRNN()
+    finisher_model = noFinisher()
     if torch.cuda.is_available():
         presence_model = presence_model.cuda()
         presence_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
         colour_model = colour_model.cuda()
         colour_model.load_state_dict(torch.load('...', map_location=torch.device('cuda'))) # Change me!
+        #finisher_model = finisher_model.cuda()
+        #finisher_model.load_state_dict(torch.load('...', map_location=torch.device('cuda')))
     else:
         presence_model.load_state_dict(
             torch.load('...', map_location=torch.device('cpu'))) # Change me!
         colour_model.load_state_dict(
             torch.load('...', map_location=torch.device('cpu'))) # Change me!
+        #finisher_model.load_state_dict(
+        #    torch.load('...', map_location=torch.device('cpu')))
+        
     print("Model parameters loaded.")
     fields = {}
 
