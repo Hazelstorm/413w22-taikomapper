@@ -190,7 +190,7 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 |![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
-Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```. Similar to ```notePresenceRNN```, we've decided to train ```noteColourRNN``` using ```lr=1e-5, wd=0, augment_noise=5``` until the validation loss plateaus. We then train it using ```lr=1e-6``` for a short while, until the validation loss plateaus again.
+Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly, so instead we use ```lr=1e-6``` from the start.. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```.
 
 ## Training and Results
 
@@ -208,12 +208,27 @@ As mentioned in the [Tuning](#tuning) section, for ```notePresenceRNN``` we star
 <p align="center">
   <img src="/images/notePresenceRNN_training_curve_overfit.png" alt="Training Curve Overfitting on notePresenceRNN" width="600"/>
 </p>
-We've noticed that the validation loss seems to plateau after around 20 epochs. Thus, to discourage overfitting, we've trained the model from epoch 20 onwards with ```lr=1e-5, wd=0, augment_noise=10```, until the training loss plateaus.
+We've noticed that the validation loss seems to plateau after around 20 epochs. Thus, we've trained the model from epoch 20 onwards with ```lr=1e-6, wd=0, augment_noise=15```.
 <p align="center">
   <img src="/images/notePresenceRNN_training_curve.png" alt="Training Curve for notePresenceRNN" width="1000"/>
 </p>
 As seen, the final training loss is approximately 0.6, while the final validation loss plateaued around 0.68. 
 
+
+For ```noteColourRNN```, we've trained with ```lr=1e-6, wd=0, augment_noise=15```. The final training loss is approximately 0.67, while the final validation loss is approximately 0.68. ```noteColourRNN``` took considerably less epochs to plateau compared to ```notePresenceRNN```; again we believe this is due to ```notePresenceRNN``` relying much more on audio cues. 
+<p align="center">
+  <img src="/images/noteColourRNN_training_curve.png" alt="Training Curve for noteColourRNN" width="1000"/>
+</p>
+
+### Quantitative Evaluation
+
+As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
+
+We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taiko/823014) and [here](https://osu.ppy.sh/beatmapsets/1022420#taiko/2665992), Kantan difficulty for both) to compare. Since BCE only allows us to compare a probability sequence with the ground truth (as opposed to ground truth with ground truth), we instead decided to overfit our models to the first, and then compute the loss of the model on the second map.
+
+Overfitting ```notePresenceRNN``` to the first map, we have reached a training loss of 0.2327. Computing its loss on the second map, we obtain 0.5145. As for ```noteColourRNN```, it reached a training loss of 0.2268, and its loss on the second map is 0.7136. Thus, the best case loss for ```notePresenceRNN``` and ```noteColourRNN``` are approximately 0.5 and 0.7 respectively.
+
+Our final ```notePresenceRNN``` model achieved a validation loss of 0.68, which is still considerably higher than the best-case loss of 0.5. On the other hand, ```noteColourRNN``` achieved a validation loss of 0.68, which is actually lower compared to the best-case loss of 0.7, so indeed our ```noteColourRNN``` matches human performance. This interpretation should be taken with caution though, as the best-case loss of 0.7 was calculated between two maps only.
 
 ### Converting to *osu!* maps
 
@@ -229,14 +244,6 @@ To play the map:
 - (Press F5 to refresh the song list.)
 - Change the *Sort* value in the top-right to *By Date Added*, using the drop-down menu. Scroll to the bottom of the song selection menu, and select the created mapset.
 - Press enter to play the map. You may choose to use the "Auto Mod" to make *osu!* play the map using a bot (F1 -> click on the "Auto" icon -> Esc).  
-
-### Quantitative Evaluation
-
-As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
-
-We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taiko/823014) and [here](https://osu.ppy.sh/beatmapsets/1022420#taiko/2665992), Kantan difficulty for both) to compare. Since BCE only allows us to compare a probability sequence with the ground truth (as opposed to ground truth with ground truth), we instead decided to overfit our models to the first, and then compute the loss of the model on the second map.
-
-Overfitting ```notePresenceRNN``` to the first map, we have reached a training loss of 0.2327. Computing its loss on the second map, we obtain 0.5145. As for ```noteColourRNN```, it reached a training loss of 0.2268, and its loss on the second map is 0.7136. Thus, the best case loss for ```notePresenceRNN``` and ```noteColourRNN``` are approximately 0.5 and 0.7 respectively.
 
 ### Qualitative Evaluation
 
