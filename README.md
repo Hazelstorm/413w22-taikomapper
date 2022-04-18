@@ -24,7 +24,7 @@ For more detailed information on the .osu file format, refer to the [*osu!Wiki*]
 
 ### TaikoMapper
 
-TaikoMapper consists of three seq2seq models (found in ```rnn.py```) that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
+TaikoMapper consists of three seq2seq models (found in ```rnn.py```) that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. However, ```noteFinisherRNN``` performed poorly during test time, and hence is deprecated. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
 
 To preprocess an audio file, we require the ```BPM``` and ```offset``` of the song (note that TaikoMapper only supports songs that don't have varying tempos). With inspiration from [*Osu! Beatmap Generator*](https://github.com/Syps/osu_beatmap_generator), the audio is first converted into a [mel spectrogram](https://en.wikipedia.org/wiki/Mel_scale) using [```librosa```](https://librosa.org/doc/latest/generated/librosa.feature.melspectrogram.html). The mel scale divides the total range of frequencies (```fmin``` and ```fmax``` in ```hyper_param.py```) into frequency bands of equal logarithmic length. The spectrogram produced by this procedure has shape ```L x n_mels```, where ```L``` is the length of the audio file (in milliseconds) and ```n_mels``` (specified in ```hyper_param.py```) is the number of frequency bands (or "mel"s) in the frequency range. 
 
@@ -35,7 +35,7 @@ Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of
 
 ## Model
 
-TaikoMapper's is constructed using three seq2seq models, all having a bidirectional GRU, that feed into each other. The three seq2seq models are:
+TaikoMapper's is constructed using the three seq2seq models mentioned, all having a bidirectional GRU, that feed into each other. The three seq2seq models are:
 - ```notePresenceRNN```, used to determine where the taiko notes are placed (ignoring note type). ```notePresenceRNN``` accepts the ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows, and outputs a sequence of ```N``` floats, with positive value indicating that a note should be placed on the respective snap. ```notePresenceRNN``` processes the spectrogram windows through a linear embedding layer, a bidirectional GRU, and then a linear layer with one output. The embeddings have size ```notePresenceRNN_embedding_size``` (found in ```hyper_params.py```), and the bidirectional GRU's two hidden units (one forward, one backward) have size ```notePresenceRNN_hidden_size```. On a single snap of input (one spectrogram window), the architecture looks like this:
 
 <p align="center">
@@ -48,7 +48,7 @@ TaikoMapper's is constructed using three seq2seq models, all having a bidirectio
   <img src="/images/noteColourRNN.png" alt="noteColourRNN Architecture" width="600"/>
 </p>
 
-- ```noteFinisherRNN```, used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and ```notes_data```, and the output is a sequence of ```N``` floats, with positive value to indicate finisher. However, ```noteFinisherRNN``` is trained using a different loss function from ```noteColourRNN``` (see [Quantitative Measures](#quantitative-measures)), in order to place finishers instead of colouring.
+- ```noteFinisherRNN``` is a deprecated model that was used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and `notes_data`, and the output is a sequence of `N` floats, with positive value to indicate finisher. Due to the relative rarity of the finisher note type in Taiko maps and the subjective nature of their placement within maps, we decided to deprecate this model. However, if one would wish to train and use this model for mapping, the model type still exists within the code.
 
 The following diagram gives an overview on how the three models are connected.
 <p align="center">
@@ -77,7 +77,7 @@ Thus, using our computations above,
 1,453,569 trainable parameters.
 - ```noteColourRNN``` and ```noteFinisherRNN``` both have ```((2 * 32 + 1) * 40 + 2) * 256 = 666112``` parameters in its embedding layer, ```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. ```noteColourRNN``` and ```noteFinisherRNN``` both have 1,453,825 parameters in total.
 
-Combining all three models together, we have 4,361,219 parameters. 
+Combining all three models together, we have 4,361,219 parameters. Without the deprecated ```noteFinisherRNN```, we have 2,907,394 parameters.
 
 <!---
 successful and unsuccessful example
@@ -130,7 +130,7 @@ We allocated 80% of the mapsets for training, 10% of the mapsets for validation,
 We have defined different loss measures for the three models. 
 - For ```notePresenceRNN```, recall that its output of ```N``` floats indicate the note presence at that snap. The greater the float value, the more confidence the model has in placing a note at that snap. On the other hand, the ground truth is a sequence of ```N``` 0s or 1s, indicating whether there is actually a note at that snap in the map. Thus, we've decided to take the softmax of the model output, to convert the output sequence into a sequence of probabilities on whether there is a note at the snap. Then, we compute the binary cross-entropy loss of this probability sequence with the ground truth. These two operations are combined into a [binary cross-entropy with logits](https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html) loss. However, in a typical Taiko map, most snaps do not have notes; there are usually around 3-10 times more empty snaps than snaps with notes. ```note_presence_weight``` is used to compensate for this note sparsity by emphasizing on present notes when computing loss. ```note_presence_weight``` is set to the ratio of snaps without notes against snaps with notes; this is computed during training time.
 - For ```noteColourRNN```, its output of ```N``` floats indicate whether the note at that snap should be coloured blue. The greater the value, the more likely the note is to be blue. The ground truth is a sequence of integers from 0 to 4; recall that 0, 1, 2, 3, and 4 represent no note, don, kat, don finisher, and kat finisher respectively. If the ground truth is 2 or 4 (indicating a blue/kat note), then ```noteColourRNN``` should be penalized for predicting a red note (low value); if the ground truth is 1 or 3 (indicating a red/don note), the model should be penalized for predicting a blue note (high value). If the ground truth is 0, the model is forced to predict 0, as mentioned before. Again, we use the binary cross-entropy with logits loss here; however we filter out the sequence entries that represent no note, as we don't want to penalize the model's colour prediction when a note is not present. Using binary CE with logits, we compare this filtered output with a binary ground-truth sequence of the same length, with 0 for red and 1 for blue. This time, weighing a positive example is not necessary; the number of red and blue notes in a typical Taiko map are similar.
-- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss (this time a positive example being 3 or 4 instead of 2 or 4), and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```. However, we found that using the ratio of non-finisher to finisher notes resulted in the model predicting a finisher for every note. Instead, after trying the values ```note_finisher_weight = 50``` and ```note_finisher_weight = 10``` (where the problem wasn't fixed), we opted to set ```note_finisher_weight = 2```.
+- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss (this time a positive example being 3 or 4 instead of 2 or 4), and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```. However, we found that using the correct ratio of non-finisher to finisher notes resulted in the model predicting a finisher for every note. Instead, after trying the values ```note_finisher_weight = 50``` and ```note_finisher_weight = 10``` (where the problem wasn't fixed),  ```note_finisher_weight = 5``` still predicted too many finishers, while ```note_finisher_weight=2``` predicted too few finishers. This is where we decided to deprecate the model (as finishers aren't too important for a Taiko map, according to Sloan).
 
 
 ## Hyperparameters
@@ -144,7 +144,7 @@ In addition, the training loop has the following hyperparameters:
 
 Finally, the following variables may have qualitative effects on the model output by encouraging positive predictions. These variables also change the loss function, so grid search is not possible:
 - ```note_presence_weight```
-- ```note_finisher_weight```
+- ```note_finisher_weight``` (deprecated)
 
 ### Tuning
 To tune the hyperparameters ```lr```, ```wd```, and ```augment_noise``` for ```notePresenceRNN```, we've performed a grid search for 150 epochs with each combination of the following:
@@ -172,8 +172,6 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
 Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```. Similar to ```notePresenceRNN```, we've decided to train ```noteColourRNN``` using ```lr=1e-5, wd=0, augment_noise=5``` until the validation loss plateaus. We then train it using ```lr=1e-6``` for a short while, until the validation loss plateaus again.
-
-Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. Since it is architecturally similar to ```noteColourRNN```, we train it in the same manner.
 
 ## Training and Results
 
