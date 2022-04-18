@@ -125,11 +125,11 @@ if __name__ == "__main__":
         finisher_model.load_state_dict(torch.load('...'), map_location=torch.device('cuda')) # Change me!
     else:
         presence_model.load_state_dict(
-            torch.load('notePresenceRNN-iter5.pt', map_location=torch.device('cpu'))) # Change me!
+            torch.load('...', map_location=torch.device('cpu'))) # Change me!
         colour_model.load_state_dict(
-            torch.load('noteColourRNN-iter110.pt', map_location=torch.device('cpu'))) # Change me!
+            torch.load('...', map_location=torch.device('cpu'))) # Change me!
         finisher_model.load_state_dict(
-            torch.load('noteFinisherRNN-iter60.pt', map_location=torch.device('cpu'))) # Change me!
+            torch.load('...', map_location=torch.device('cpu'))) # Change me!
     print("Model parameters loaded.")
     fields = {}
 
