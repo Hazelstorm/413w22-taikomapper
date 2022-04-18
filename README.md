@@ -179,7 +179,7 @@ However, to save time, the training and validation sets are 15% and 2.5% of the 
 |![alt](images/notePresenceRNN_wd_tuning_training.png) | ![alt](images/notePresenceRNN_wd_tuning_validation.png) |
 |![alt](images/notePresenceRNN_noise_tuning_training.png) | ![alt](images/notePresenceRNN_noise_tuning_validation.png) |
 
-Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. Thus, we use ```lr=1e-5``` until training loss plateaus, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```. 
+Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. Thus, we use ```lr=1e-5``` until training loss plateaus, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```. However, once we switch to ```lr=1e-6```, we also increase ```augment_noise``` to 15, to further discourage overfitting.  
 
 We have not performed a formal grid search to tune ```notePresenceRNN_embedding_size``` or ```notePresenceRNN_hidden_size```. Originally, ```notePresenceRNN``` did not have an embedding layer, and started with a hidden size of 20. However, once we've tried increasing this hidden size to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. We have not tested the effect of ```notePresenceRNN_embedding_size```.
 
@@ -209,10 +209,11 @@ As mentioned in the [Tuning](#tuning) section, for ```notePresenceRNN``` we star
   <img src="/images/notePresenceRNN_training_curve_overfit.png" alt="Training Curve Overfitting on notePresenceRNN" width="600"/>
 </p>
 We've noticed that the validation loss seems to plateau after around 20 epochs. Thus, to discourage overfitting, we've trained the model from epoch 20 onwards with ```lr=1e-5, wd=0, augment_noise=10```, until the training loss plateaus.
-
 <p align="center">
-  <img src="/images/notePresenceRNN_training_curve_overfit.png" alt="Training Curve Overfitting on notePresenceRNN" width="600"/>
+  <img src="/images/notePresenceRNN_training_curve.png" alt="Training Curve for notePresenceRNN" width="1000"/>
 </p>
+As seen, the final training loss is approximately 0.6, while the final validation loss plateaued around 0.68. 
+
 
 ### Converting to *osu!* maps
 
@@ -228,6 +229,14 @@ To play the map:
 - (Press F5 to refresh the song list.)
 - Change the *Sort* value in the top-right to *By Date Added*, using the drop-down menu. Scroll to the bottom of the song selection menu, and select the created mapset.
 - Press enter to play the map. You may choose to use the "Auto Mod" to make *osu!* play the map using a bot (F1 -> click on the "Auto" icon -> Esc).  
+
+### Quantitative Evaluation
+
+As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
+
+We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taiko/823014) and [here](https://osu.ppy.sh/beatmapsets/1022420#taiko/2665992), Kantan difficulty for both) to compare. Since BCE only allows us to compare a probability sequence with the ground truth (as opposed to ground truth with ground truth), we instead decided to overfit our models to the first, and then compute the loss of the model on the second map.
+
+Overfitting ```notePresenceRNN``` to the first map, we have reached a training loss of 0.2327. Computing its loss on the second map, we obtain 0.5145. As for ```noteColourRNN```, it reached a training loss of 0.2268, and its loss on the second map is 0.7136. Thus, the best case loss for ```notePresenceRNN``` and ```noteColourRNN``` are approximately 0.5 and 0.7 respectively.
 
 ### Qualitative Evaluation
 
