@@ -178,6 +178,7 @@ Trains the RNN.
 Arguments:
 - model_compute: The forward function for model (model_compute_note_presence, model_compute_note_colour, model_compute_note_finisher).
 - criterion: The loss function for the model (note_presence_loss, note_colour_loss, note_finisher_loss).
+- pos_weight: Used to weigh positive examples when calculating loss in criterion (note_presence_weight, note_finisher_weight).
 - num_epochs: Number of epochs to train this model for.
 - lr: Learning rate.
 - wd: Weight decay (regularization).
