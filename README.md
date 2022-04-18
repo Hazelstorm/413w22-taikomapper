@@ -77,7 +77,7 @@ Thus, using our computations above,
 1,453,569 trainable parameters.
 - ```noteColourRNN``` and ```noteFinisherRNN``` both have ```((2 * 32 + 1) * 40 + 2) * 256 = 666112``` parameters in its embedding layer, ```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. ```noteColourRNN``` and ```noteFinisherRNN``` both have 1,453,825 parameters in total.
 
-Combining all three models together, we have 4,361,219 parameters. Without the deprecated ```noteFinisherRNN```, we have 2,907,394 parameters.
+Without the deprecated ```noteFinisherRNN```, we have 2,907,394 parameters in total. With ```noteFinisherRNN``` we have 4,361,219 parameters. 
 
 <!---
 successful and unsuccessful example
