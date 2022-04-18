@@ -297,7 +297,7 @@ Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)):
 Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Created the preprocessing code (with Sloan).
 - Helped write some of the helper functions in ```helper.py```.
-- Helped David with postprocessing.py
+- Helped David with postprocessing.py.
 - Trained the ```notePresenceRNN``` and ```noteColourRNN``` models on her computer (RTX 3080 Ti).
 - Wrote code to export the training curves to .csv files.
 
@@ -305,8 +305,8 @@ Paul Zhang ([@sjorv](https://github.com/sjorv)):
 - Created the initial RNN models (originally a unidirectional GRU without embedding).
 - Wrote the training code and the loss functions.
 - Optimized preprocessing and postprocessing code. 
-- Evaluated the model qualitatively, by creating *osu!Taiko* beatmaps using the model.
-- Wrote most of the code documentation, and produced the training curves.
+- Evaluated the model qualitatively as it trained, by creating *osu!Taiko* beatmaps using the model.
+- Wrote most of the code documentation, and produced some of the training curves.
 - Composed this README file.
 - Proposed and built consensus for this project.
 
