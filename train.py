@@ -33,7 +33,7 @@ def plot(train_losses, val_losses, val_iters):
     plt.plot(train_losses, label=f"Training Loss")
     plt.plot(val_iters, val_losses, label=f"Validation Loss")
     plt.legend()
-    plt.xlabel("Iteration")
+    plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.show()
 
@@ -41,23 +41,26 @@ def plot(train_losses, val_losses, val_iters):
 Outputs the training/validation losses into a csv file.
 The training and validation loss is dumped into train_loss_dump and val_loss_dump respectively.
 """
-def dump_losses(train_losses, val_losses, val_iters, graph_name):
+def dump_losses(train_losses, val_losses, val_iters, graph_name=None):
     global train_loss_dump, val_loss_dump
     
-    train_header = ['training losses', graph_name]
+    train_header = ['training losses', 'validation loss', graph_name]
     train_writer = csv.writer(train_loss_dump)
     train_writer.writerow(train_header)
     
-    for i in (train_losses):
+    for i in train_losses:
         train_writer.writerow([i])
     
+    train_loss_dump.flush()
     
     val_header = ['val_losses', 'val_iters', graph_name]    
     val_writer = csv.writer(val_loss_dump)
     val_writer.writerow(val_header)
     
-    for j, k in zip(val_losses, val_iters):
+    for j,k in zip(val_losses, val_iters):
         val_writer.writerow([j,k])
+    
+    val_loss_dump.flush()
 
 """
 Enable this signal handler to plots training and validation loss upon keyboard interrupt.
@@ -109,7 +112,7 @@ class MapDataset(Dataset):
 
 # Loss functions for each model
 note_presence_weight = 5 
-note_finisher_weight = 3
+note_finisher_weight = 2
 
 """
 Compute the average ratio of present notes to non-present notes on snaps, and update
@@ -126,6 +129,21 @@ def compute_note_presence_weight():
         total_no_notes += no_notes
     global note_presence_weight
     note_presence_weight = total_no_notes / total_notes
+
+"""
+Compute the average ratio of finisher notes to non-finisher notes on snaps
+"""
+def compute_note_finisher_weight():
+    train_dataset = MapDataset(0, SPLIT[0])
+    train_loader = DataLoader(train_dataset)
+    total_finishers = 0
+    total_no_finishers = 0
+    for _, _, notes_data in train_loader:
+        finishers, no_finishers = helper.get_finisher_ratio(notes_data)
+        total_finishers += finishers
+        total_no_finishers += no_finishers
+    note_finisher_weight = total_no_finishers / total_finishers
+    return note_finisher_weight
 
 def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
@@ -176,8 +194,12 @@ Arguments:
 - compute_valid_loss_every: Validation loss is computed every <compute_valid_loss_every> epochs.
 """
 def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, wd=0, 
-    checkpoint_path=None, augment_noise=None, compute_valid_loss_every=10):
-    print(f"Beginning training (lr={lr}).")
+    checkpoint_path=None, augment_noise=None, compute_valid_loss_every=10, test=False):
+    
+    if test:
+        print(f"Evaluating Test Accuracy.")   
+    else:
+        print(f"Beginning training (lr={lr}).")
 
     # Reset arrays used for plotting
     global train_losses
@@ -190,10 +212,38 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
     
     train_dataset = MapDataset(0, SPLIT[0])
     val_dataset = MapDataset(SPLIT[0], SPLIT[1])
+    test_dataset =MapDataset(SPLIT[1], 1)
     train_loader = DataLoader(train_dataset, shuffle=True)
     val_loader = DataLoader(val_dataset, shuffle=True)
+    test_loader = DataLoader(test_dataset, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=wd)
 
+    if test:
+        test_loss = []
+        for audio_data, timing_data, notes_data in test_loader:
+            if torch.cuda.is_available():
+                audio_data = audio_data.cuda()
+                notes_data = notes_data.cuda()
+                
+            bar_len = timing_data["bar_len"].item()
+            offset = timing_data["offset"].item()
+            audio_windows = helper.get_audio_around_snaps(torch.squeeze(audio_data, dim=0), 
+                                    bar_len, offset, hyper_param.window_size)
+            audio_windows = torch.flatten(audio_windows, start_dim=1)
+    
+            model_out = model_compute(model, audio_windows, notes_data)
+            notes_data = torch.squeeze(notes_data, dim=0)
+            model_loss = criterion(model_out, notes_data)
+            test_loss.append(model_loss.item())
+        
+        #Average test loss
+        test_loss = sum(test_loss) / len(test_loss)
+            
+        # Compute validation loss
+        print(f"The average losses for the test set is: {test_loss}")
+        
+        return None, None, None
+        
     # Main training loop
     for epoch_num in range(num_epochs):
         train_loss = []
@@ -256,16 +306,18 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
                     f" | Val Loss: {'{:.4f}'.format(val_losses[-1])}")
         else:
             print(f"Epoch {epoch_num + 1}/{num_epochs}" + 
-                  f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}")
+                f" | Train Loss: {'{:.4f}'.format(train_losses[-1])}")
     
         if checkpoint_path and (epoch_num % 5) == 0:
             torch.save(model.state_dict(), checkpoint_path.format(epoch_num,lr))
 
     return train_losses, val_losses, val_iters
 
+
 if __name__ == "__main__":
     print("Computing note presence weight...")
     compute_note_presence_weight()
+    note_finisher_weight = compute_note_finisher_weight()
     signal.signal(signal.SIGINT, signal_handler) # Plot upon SIGINT
 
     checkpoint_dir = "checkpoints"
@@ -276,34 +328,34 @@ if __name__ == "__main__":
     # presence_model = notePresenceRNN()
     # if torch.cuda.is_available():
     #     presence_model = presence_model.cuda()
-    #     presence_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
+    #     presence_model.load_state_dict(torch.load(checkpoint_dir+"/notePresenceRNN-final.pt", map_location=torch.device('cuda')))
     # presence_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
     #     train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
     #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
-    #             augment_noise=5, compute_valid_loss_every=1)
+    #             augment_noise=5, compute_valid_loss_every=1, test=True)
     # dump_losses(train_losses, val_losses, val_iters)
     
     # Train noteColourRNN
     # colour_model = noteColourRNN()
     # if torch.cuda.is_available():
     #     colour_model = colour_model.cuda()
-    #     colour_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
+    #     colour_model.load_state_dict(torch.load(checkpoint_dir+"/noteColourRNN-final.pt", map_location=torch.device('cuda')))
     # colour_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
     #     train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, 
-    #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteColourRNN-iter{}.pt", 
-    #             augment_noise=5, compute_valid_loss_every=1)
+    #             lr=5e-6, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/test_noteColourRNN-iter{}.pt", 
+    #             augment_noise=5, compute_valid_loss_every=1, test=True)
     # dump_losses(train_losses, val_losses, val_iters)
 
-    # Train noteFinisher
+    # # Train noteFinisher
     # finisher_model = noteFinisherRNN()
     # if torch.cuda.is_available():
     #     finisher_model = finisher_model.cuda()
-    #     finisher_model.load_state_dict(torch.load("...", map_location=torch.device('cuda')))
-    # finisher_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
+    #     finisher_model.load_state_dict(torch.load(checkpoint_dir+"/_notefinisherRNN-iter25.pt", map_location=torch.device('cuda')))
+    # # finisher_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
     #     train_rnn_network(finisher_model, model_compute_note_finisher, note_finisher_loss, 
-    #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/noteFinisherRNN-iter{}.pt", 
+    #             lr=1e-5, num_epochs=16, wd=0, checkpoint_path=checkpoint_dir+"/hw_noteFinisherRNN-iter{}.pt", 
     #             augment_noise=5, compute_valid_loss_every=1)
     # dump_losses(train_losses, val_losses, val_iters)
