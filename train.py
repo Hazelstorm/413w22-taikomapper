@@ -10,6 +10,7 @@ import helper
 import hyper_param
 import csv
 import signal, sys
+from statistics import mean
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -130,21 +131,6 @@ def compute_note_presence_weight():
     global note_presence_weight
     note_presence_weight = total_no_notes / total_notes
 
-"""
-Compute the average ratio of finisher notes to non-finisher notes on snaps
-"""
-def compute_note_finisher_weight():
-    train_dataset = MapDataset(0, SPLIT[0])
-    train_loader = DataLoader(train_dataset)
-    total_finishers = 0
-    total_no_finishers = 0
-    for _, _, notes_data in train_loader:
-        finishers, no_finishers = helper.get_finisher_ratio(notes_data)
-        total_finishers += finishers
-        total_no_finishers += no_finishers
-    note_finisher_weight = total_no_finishers / total_finishers
-    return note_finisher_weight
-
 def note_presence_loss(model_output, notes_data, pos_weight=note_presence_weight):
     nonzero_notes = torch.minimum(notes_data, torch.ones_like(notes_data))
     pos_weight = torch.tensor(pos_weight)
@@ -237,7 +223,7 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
             test_loss.append(model_loss.item())
         
         #Average test loss
-        test_loss = sum(test_loss) / len(test_loss)
+        test_loss = mean(test_loss)
             
         # Compute validation loss
         print(f"The average losses for the test set is: {test_loss}")
@@ -317,36 +303,35 @@ def train_rnn_network(model, model_compute, criterion, num_epochs=100, lr=1e-3, 
 if __name__ == "__main__":
     print("Computing note presence weight...")
     compute_note_presence_weight()
-    note_finisher_weight = compute_note_finisher_weight()
     signal.signal(signal.SIGINT, signal_handler) # Plot upon SIGINT
 
     checkpoint_dir = "checkpoints"
     if not (os.path.isdir("checkpoints")):
         os.mkdir("checkpoints")
 
-    # Train notePresenceRNN
+    # # Train notePresenceRNN
     # presence_model = notePresenceRNN()
     # if torch.cuda.is_available():
     #     presence_model = presence_model.cuda()
     #     presence_model.load_state_dict(torch.load(checkpoint_dir+"/notePresenceRNN-final.pt", map_location=torch.device('cuda')))
-    # presence_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
+    # # presence_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
     #     train_rnn_network(presence_model, model_compute_note_presence, note_presence_loss, 
-    #             lr=1e-5, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
+    #             lr=1e-5, num_epochs=1, wd=0, checkpoint_path=checkpoint_dir+"/notePresenceRNN-iter{}.pt", 
     #             augment_noise=5, compute_valid_loss_every=1, test=True)
-    # dump_losses(train_losses, val_losses, val_iters)
+    # # dump_losses(train_losses, val_losses, val_iters)
     
-    # Train noteColourRNN
+    # # Train noteColourRNN
     # colour_model = noteColourRNN()
     # if torch.cuda.is_available():
     #     colour_model = colour_model.cuda()
     #     colour_model.load_state_dict(torch.load(checkpoint_dir+"/noteColourRNN-final.pt", map_location=torch.device('cuda')))
-    # colour_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
+    # # colour_model.load_state_dict(torch.load("...", map_location=torch.device('cpu')))
     # train_losses, val_losses, val_iters = \
     #     train_rnn_network(colour_model, model_compute_note_colour, note_colour_loss, 
     #             lr=5e-6, num_epochs=1001, wd=0, checkpoint_path=checkpoint_dir+"/test_noteColourRNN-iter{}.pt", 
     #             augment_noise=5, compute_valid_loss_every=1, test=True)
-    # dump_losses(train_losses, val_losses, val_iters)
+    # # dump_losses(train_losses, val_losses, val_iters)
 
     # # Train noteFinisher
     # finisher_model = noteFinisherRNN()
