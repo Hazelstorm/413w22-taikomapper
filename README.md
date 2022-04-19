@@ -261,16 +261,16 @@ For ```noteColourRNN```, we see that the model prefers to place kats for high-pi
 
 #### Surveying Beatmap Nominators
 
-In *osu!*, "Beatmap Nominators" (BNs) are Taiko map creators that have the power to promote other mapsets to ranked status, after the map passes a quality check process. Since Sloan has created a few ranked maps before, he is familiar with some BNs. Thus, to get other (qualified) people to evaluate the quality of our model, Sloan has sent the two maps produced by our model to a group of BNs, and asked the following questions to them:
+In *osu!*, "Beatmap Nominators" (BNs) are Taiko map creators that have the power to promote other mapsets to ranked status, after the map passes a quality check process. Since Sloan is involved with the taiko mapping community, he is familiar with some BNs. Thus, to get other (qualified) people to evaluate the quality of our model, Sloan has sent the two maps produced by our model to a group of BNs, and asked the following questions to them:
 
 ```
 Please look over the maps sent with this message and answer the following questions for one or both of them:
 
 What difficulty do you believe the map is intended to be, and why?
 
-Please provide your thoughts on the quality of the map (in particular, with respect to the patterning and colouring ONLY)
+Please provide your thoughts on the quality of the map (in particular, with respect to the note placement and colouring ONLY)
 
-Would you rank a mapset with this difficulty? If not, give some examples of what would have to change in order for you to be comfortable with ranking it. (in particular, with respect to the patterning and colouring ONLY)
+Would you rank a mapset with this difficulty? If not, give some examples of what would have to change in order for you to be comfortable with ranking it. (in particular, with respect to the note placement and colouring ONLY)
 ```
 
 Here are the responses:
