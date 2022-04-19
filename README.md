@@ -79,10 +79,9 @@ Thus, using our computations above,
 
 Without the deprecated ```noteFinisherRNN```, we have 2,907,394 parameters in total. With ```noteFinisherRNN``` we have 4,361,219 parameters. 
 
-<!---
-successful and unsuccessful example
---->
+### Model Example
 
+See [Qualitative Evaluation](#qualitative-evaluation). In our case, ```notePresenceRNN``` tended to follow inconsistent rhythms in "break sections" (explained in [Qualitative Evaluation](#qualitative-evaluation)), while in general ```notePresenceRNN```'s note placement is reasonable in high-intensity sections with percussion. It is more difficult to directly evaluate where ```noteColourRNN``` makes a "correct" versus an "incorrect" prediction.
 
 ## Data and Preprocessing
 
