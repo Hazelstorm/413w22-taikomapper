@@ -252,7 +252,7 @@ We have produced two Taiko maps using the trained model. The following songs wer
 - Tanchiky - School (BPM: 140, offset: 382). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
 - Bill Wurtz - School (BPM: 96, offset: 1099). A video of the map can be found [here](https://www.youtube.com/watch?v=FnAFkdGqGAY).
 
-Neither song is in the training set. The latter song (Bill Wurtz - School) was chosen as it seems to have more complex rhythm, overlayed with vocals. 
+Neither song is in the training set. The two chosen songs have different musical genres, to be more representative of what is mapped in Taiko.
 
 Overall, the ```notePresenceRNN``` model seemed to pick up percussion elements quite well. However, we've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
 - Low-intensity sections of music tend to have less percussion and more melodic elements. On the other hand, ```notePresenceRNN``` seems to focus on the percussion element of music, so the model could struggle when percussion is not present. Furthermore, we've limited ```fmax```, the max frequency for the spectrogram, to 5000 Hz; this frequency limit may cut off treble in low-intensity sections (where bass is limited).
