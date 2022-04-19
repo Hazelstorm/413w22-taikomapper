@@ -100,7 +100,6 @@ current_vals = {
 
 """
 Sets current parameters for song data, overwriting default data.
-
 Parameters:
     pairs (list of tuple): A list containing all the changes to be made to the parameters
 """

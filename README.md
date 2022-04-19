@@ -1,7 +1,7 @@
 # TaikoMapper
 An *osu!Taiko* Map Generator. Created as a final project for CSC413H5 Winter 2022 at the University of Toronto Mississauga.
 
-*Dependencies: Python 3.8, librosa, ffmpeg, pydub, PyTorch.*
+*Dependencies: Python 3.8, librosa, ffmpeg, pydub, PyTorch, tqdm.*
 
 ## Introduction
 
@@ -24,7 +24,7 @@ For more detailed information on the .osu file format, refer to the [*osu!Wiki*]
 
 ### TaikoMapper
 
-TaikoMapper consists of three seq2seq models (found in ```rnn.py```) that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
+TaikoMapper consists of three seq2seq models (found in ```rnn.py```) that together produce *osu!Taiko* maps. The three models are called ```notePresenceRNN```, ```noteColourRNN```, and ```noteFinisherRNN``` respectively. However, ```noteFinisherRNN``` performed poorly during test time, and hence is deprecated. TaikoMapper takes in a preprocessed (see the paragraphs below) audio file, and outputs a time series of Taiko notes. 
 
 To preprocess an audio file, we require the ```BPM``` and ```offset``` of the song (note that TaikoMapper only supports songs that don't have varying tempos). With inspiration from [*Osu! Beatmap Generator*](https://github.com/Syps/osu_beatmap_generator), the audio is first converted into a [mel spectrogram](https://en.wikipedia.org/wiki/Mel_scale) using [```librosa```](https://librosa.org/doc/latest/generated/librosa.feature.melspectrogram.html). The mel scale divides the total range of frequencies (```fmin``` and ```fmax``` in ```hyper_param.py```) into frequency bands of equal logarithmic length. The spectrogram produced by this procedure has shape ```L x n_mels```, where ```L``` is the length of the audio file (in milliseconds) and ```n_mels``` (specified in ```hyper_param.py```) is the number of frequency bands (or "mel"s) in the frequency range. 
 
@@ -35,7 +35,7 @@ Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of
 
 ## Model
 
-TaikoMapper's is constructed using three seq2seq models, all having a bidirectional GRU, that feed into each other. The three seq2seq models are:
+TaikoMapper's is constructed using the three seq2seq models mentioned, all having a bidirectional GRU, that feed into each other. The three seq2seq models are:
 - ```notePresenceRNN```, used to determine where the taiko notes are placed (ignoring note type). ```notePresenceRNN``` accepts the ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows, and outputs a sequence of ```N``` floats, with positive value indicating that a note should be placed on the respective snap. ```notePresenceRNN``` processes the spectrogram windows through a linear embedding layer, a bidirectional GRU, and then a linear layer with one output. The embeddings have size ```notePresenceRNN_embedding_size``` (found in ```hyper_params.py```), and the bidirectional GRU's two hidden units (one forward, one backward) have size ```notePresenceRNN_hidden_size```. On a single snap of input (one spectrogram window), the architecture looks like this:
 
 <p align="center">
@@ -48,7 +48,7 @@ TaikoMapper's is constructed using three seq2seq models, all having a bidirectio
   <img src="/images/noteColourRNN.png" alt="noteColourRNN Architecture" width="600"/>
 </p>
 
-- ```noteFinisherRNN```, used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and ```notes_data```, and the output is a sequence of ```N``` floats, with positive value to indicate finisher. However, ```noteFinisherRNN``` is trained using a different loss function from ```noteColourRNN``` (see [Quantitative Measures](#quantitative-measures)), in order to place finishers instead of colouring.
+- ```noteFinisherRNN``` is a deprecated model that was used to assign whether a note is a finisher to an uncoloured sequence of notes produced by ```notePresenceRNN```. Architectually, ```notefinisherRNN``` is identical to ```noteColourRNN```: the inputs are the spectrogram windows and `notes_data`, and the output is a sequence of `N` floats, with positive value to indicate finisher. Due to the relative rarity of the finisher note type in Taiko maps and the subjective nature of their placement within maps, we decided to deprecate this model. However, if one would wish to train and use this model for mapping, the model type still exists within the code.
 
 The following diagram gives an overview on how the three models are connected.
 <p align="center">
@@ -77,7 +77,7 @@ Thus, using our computations above,
 1,453,569 trainable parameters.
 - ```noteColourRNN``` and ```noteFinisherRNN``` both have ```((2 * 32 + 1) * 40 + 2) * 256 = 666112``` parameters in its embedding layer, ```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. ```noteColourRNN``` and ```noteFinisherRNN``` both have 1,453,825 parameters in total.
 
-Combining all three models together, we have 4,361,219 parameters. 
+Without the deprecated ```noteFinisherRNN```, we have 2,907,394 parameters in total. With ```noteFinisherRNN``` we have 4,361,219 parameters. 
 
 <!---
 successful and unsuccessful example
@@ -104,6 +104,25 @@ Having all the mapsets in the ```data/``` directory, run ```preprocessing.py```.
 
 The conversion from spectrogram to spectrogram windows is performed during training time, as we wanted the ability to change the hyperparameter ```window_size``` without preprocessing.
 
+### Data Representation
+Each map in the dataset is represented by three of files:
+- ```audio_data.npy```: This file contains the spectrogram (not split into windows), which is a numpy array of size ```[L, n_mels]```, where ```L``` is the length of the song in milliseconds.
+- ```timing_data.json```: This is a json object containing keys ```offset``` and ```bar_len```. These values are not used within the models, but they are used for data preprocessing and are required to construct spectrogram windows from the spectrogram.
+- ```notes_data.npy```: This contains the sequences of notes, as a numpy array of length ```N```. Each entry in the array is an integer from 0-4; the integer values are mapped to the note type as follows (note that finisher notes are deprecated but remain as a code artefact; see the [Model](#model) section above):
+
+<div align="center">
+  
+| # | Note Type    |
+|---|--------------|
+| 0 | None         |
+| 1 | Don          |
+| 2 | Kat          |
+| 3 | Don Finisher |
+| 4 | Kat Finisher |
+  
+</div>
+
+
 ### Data Summary
 There are a total of 2795 ranked mapsets from 2013-2021 containing a difficulty from Kantan, Futsuu, Muzukashii, and Oni. In total, there are 9113 such Taiko difficulties. However, not all mapsets are processable by our model, due to issues as mentioned previously. In total (using ```get_npy_stats.py```), there are only 5887 difficulties that are usable in our dataset.
 
@@ -128,10 +147,9 @@ We allocated 80% of the mapsets for training, 10% of the mapsets for validation,
 
 ## Quantitative Measures
 We have defined different loss measures for the three models. 
-- For ```notePresenceRNN```, recall that its output of ```N``` floats indicate the note presence at that snap. The greater the float value, the more confidence the model has in placing a note at that snap. On the other hand, the ground truth is a sequence of ```N``` 0s or 1s, indicating whether there is actually a note at that snap in the map. Thus, we've decided to take the softmax of the model output, to convert the output sequence into a sequence of probabilities on whether there is a note at the snap. Then, we compute the binary cross-entropy loss of this probability sequence with the ground truth. These two operations are combined into a [binary cross-entropy with logits](https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html) loss. However, in a typical Taiko map, most snaps do not have notes; there are usually around 3-10 times more empty snaps than snaps with notes. ```note_presence_weight``` (computed before training) is used to compensate for this note sparsity by emphasizing on present notes when computing loss.
-- The hyperparameter ```note_presence_weight``` (in ```hyper_params.py```) is used to compensate for this note sparsity, through scaling the weight positive examples by ```note_presence_weight```.
+- For ```notePresenceRNN```, recall that its output of ```N``` floats indicate the note presence at that snap. The greater the float value, the more confidence the model has in placing a note at that snap. On the other hand, the ground truth is a sequence of ```N``` 0s or 1s, indicating whether there is actually a note at that snap in the map. Thus, we've decided to take the softmax of the model output, to convert the output sequence into a sequence of probabilities on whether there is a note at the snap. Then, we compute the binary cross-entropy loss of this probability sequence with the ground truth. These two operations are combined into a [binary cross-entropy with logits](https://pytorch.org/docs/stable/generated/torch.nn.BCEWithLogitsLoss.html) loss. However, in a typical Taiko map, most snaps do not have notes; there are usually around 3-10 times more empty snaps than snaps with notes. ```note_presence_weight``` is used to compensate for this note sparsity by emphasizing on present notes when computing loss. ```note_presence_weight``` is set to the ratio of snaps without notes against snaps with notes; this is computed during training time.
 - For ```noteColourRNN```, its output of ```N``` floats indicate whether the note at that snap should be coloured blue. The greater the value, the more likely the note is to be blue. The ground truth is a sequence of integers from 0 to 4; recall that 0, 1, 2, 3, and 4 represent no note, don, kat, don finisher, and kat finisher respectively. If the ground truth is 2 or 4 (indicating a blue/kat note), then ```noteColourRNN``` should be penalized for predicting a red note (low value); if the ground truth is 1 or 3 (indicating a red/don note), the model should be penalized for predicting a blue note (high value). If the ground truth is 0, the model is forced to predict 0, as mentioned before. Again, we use the binary cross-entropy with logits loss here; however we filter out the sequence entries that represent no note, as we don't want to penalize the model's colour prediction when a note is not present. Using binary CE with logits, we compare this filtered output with a binary ground-truth sequence of the same length, with 0 for red and 1 for blue. This time, weighing a positive example is not necessary; the number of red and blue notes in a typical Taiko map are similar.
-- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss (this time a positive example being 3 or 4 instead of 2 or 4), and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```. However, we found that using the ratio of non-finisher to finisher notes resulted in the model predicting a finisher for every note. Instead, after trying the values ```noteFinisherRNN = 50``` and ```noteFinisherRNN = 10``` (where the problem wasn't fixed), we opted to set ```noteFinisherRNN = 3```.
+- For ```noteFinisherRNN```, its output of ```N``` floats indicate whether the note at that snap should be a finisher note. The greater the value, the more likely the note is to be a finisher. Again, the ground truth is a sequence of integers from 0 to 4; 3 and 4 indicate a finisher note, while 1 and 2 indicate a non-finisher. We perform the same filtering operation as in ```noteColourRNN```'s loss (this time a positive example being 3 or 4 instead of 2 or 4), and use binary CE with logits. However, since finisher notes are relatively rare, we scale the weight of the positive examples by ```note_finisher_weight```. For a similar reason to ```notePresenceRNN``` (very few notes are finishers), ```note_finisher_weight``` is used to emphasize finisher notes when computing loss for ```noteFinisherRNN```. However, we found that using the correct ratio of non-finisher to finisher notes resulted in the model predicting a finisher for every note. Instead, after trying the values ```note_finisher_weight = 50``` and ```note_finisher_weight = 10``` (where the problem wasn't fixed),  ```note_finisher_weight = 5``` still predicted too many finishers, while ```note_finisher_weight=2``` predicted too few finishers. This is where we decided to deprecate the model (as finishers aren't too important for a Taiko map, according to Sloan).
 
 
 ## Hyperparameters
@@ -142,6 +160,10 @@ Our TaikoMapper model has the following hyperparameters:
 In addition, the training loop has the following hyperparameters:
 - ```lr```, ```wd``` (weight decay): These hyperparameters can be found in ```train.py```.
 - ```augment_noise```: Also found in ```train.py```, this parameter adds noise to the spectrogram windows before training the models. 
+
+Finally, the following variables may have qualitative effects on the model output by encouraging positive predictions. These variables also change the loss function, so grid search is not possible:
+- ```note_presence_weight```
+- ```note_finisher_weight``` (deprecated)
 
 ### Tuning
 To tune the hyperparameters ```lr```, ```wd```, and ```augment_noise``` for ```notePresenceRNN```, we've performed a grid search for 150 epochs with each combination of the following:
@@ -157,13 +179,7 @@ However, to save time, the training and validation sets are 15% and 2.5% of the 
 |![alt](images/notePresenceRNN_wd_tuning_training.png) | ![alt](images/notePresenceRNN_wd_tuning_validation.png) |
 |![alt](images/notePresenceRNN_noise_tuning_training.png) | ![alt](images/notePresenceRNN_noise_tuning_validation.png) |
 
-Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. Thus, we use ```lr=1e-5``` until training loss plateaus, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```. 
-
-However, after training the model with ```lr=1e-5, wd=0, augment_noise=5``` on the full dataset (80%/10%), we've noticed that the validation loss seems to plateau after around 20 epochs (training curve below) Thus, to discourage overfitting, we've trained the model from epoch 20 onwards with ```lr=1e-5, wd=0, augment_noise=10```, until the training loss plateaus.
-
-<p align="center">
-  <img src="/images/notePresenceRNN_training_curve_overfit.png" alt="Training Curve Overfitting on notePresenceRNN" width="600"/>
-</p>
+Looking at the effect of learning rate, ```lr=1e-4``` plateaus very quickly, while ```lr=1e-6``` converges very slowly. ```lr=1e-5``` outperforms both other learning rates on both training and validation loss. Thus, we use ```lr=1e-5``` until training loss plateaus, and then switch to ```lr=1e-6```. Adding weight decay seemed to make the validation loss more unstable and make the training loss descend more slowly, so weight decay doesn't really seem to prevent overfitting in ```notePresenceRNN```; we use ```wd=0```. As for the noise, ```augment_noise=0.5``` and ```augment_noise=0.05``` gave the best results for training loss, while ```augment_noise=5``` seemed to very slightly decrease validation loss compared to lower augment noise, so we use ```augment_noise=5```. However, once we switch to ```lr=1e-6```, we also increase ```augment_noise``` to 15, to further discourage overfitting.  
 
 We have not performed a formal grid search to tune ```notePresenceRNN_embedding_size``` or ```notePresenceRNN_hidden_size```. Originally, ```notePresenceRNN``` did not have an embedding layer, and started with a hidden size of 20. However, once we've tried increasing this hidden size to 50, 100, and 200, we've seen that with an increase in the hidden sizes, the loss decreased faster (even though it took more time to train). We've decided to opt for a hidden size of 256 for this reason. We have not tested the effect of ```notePresenceRNN_embedding_size```.
 
@@ -174,20 +190,45 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 |![alt](images/noteColourRNN_wd_tuning_training.png) | ![alt](images/noteColourRNN_wd_tuning_validation.png) |
 |![alt](images/noteColourRNN_noise_tuning_training.png) | ![alt](images/noteColourRNN_noise_tuning_validation.png) |
 
-Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```. Similar to ```notePresenceRNN```, we've decided to train ```noteColourRNN``` using ```lr=1e-5, wd=0, augment_noise=5``` until the validation loss plateaus. We then train it using ```lr=1e-6``` for a short while, until the validation loss plateaus again.
+Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly, so instead we use ```lr=1e-6``` from the start.. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```.
 
-Unfortunately, for ```noteFinisherRNN``` we did not have time to perform tuning on its parameters. Since it is architecturally similar to ```noteColourRNN```, we train it in the same manner.
-
-## Training and Results
-
-As mentioned in [Tuning](#tuning), we've trained ```notePresenceRNN``` with ```lr=1e-5, wd=0, augment_noise=5``` until it started overfitting (epoch 20), then switched to  ```lr=1e-5, wd=0, augment_noise=10``` until the training loss plateaued, and then finished with ```lr=1e-6, wd=0, augment_noise=10```. 
-
-### Justification for Choice of Model
+## Justification for Choice of Model
 Since creating a Taiko map is a seq2seq problem (audio file to sequence of notes), we have opted to use RNNs. However, in human-made Taiko maps, there tend to be some simple predefined patterns such as the "triple" (three consecutive notes spaced 1/4 apart). However, Taiko maps also have more complicated structures such as "break sections" where there are no notes (and the player waits and listen to the music until the break section ends, where they start playing again). Thus, having the model learn long-term dependencies would be preferrable, which is why we've opted to use a GRU. The GRU is bidirectional, as in Taiko, note placement should be made accordingly with notes in the future, as well as notes from the past. For example, if the model sees that there is a note exactly one snap away from the current snap, the model should refrain from placing a note on the current snap, unless the model wants to form a pattern of notes such as the triple.
 
 We've originally intended to use a Transformer as our final model; however we've quickly encounted issues with limited GPU memory. At that point in the project, we were feeding the TaikoMapper millisecond-by-millisecond audio data (instead of audio windows around each snap). With this, the input consists of sequences of length up to 300000 (5 minutes), while the Transformer's attention mechanism requires ```O(n^2)``` memory to store the attention weights, where ```n``` is the sequence length. Even when we attempted to limit the maximum song length to 2 minutes (120000ms), the model attempted to allocate >500GB of video memory. We have considered using a [reformer](https://ai.googleblog.com/2020/01/reformer-efficient-transformer.html) instead, but ultimately just decided to using a GRU for simplicity (and we switched to using audio windows instead of per-ms audio data after this decision was made).
 
 It also turns out that the input embedding layer is essential for the model to produce reasonable results. Originally, without the embedding layer, our model failed to produce any result that captures musical rhythm; the model produced either sporadic notes or "note spam", and failed to learn common Taiko patterns such as the triple.
+
+## Training and Results
+
+The final weights for ```notePresenceRNN``` and ```noteColourRNN``` can be found in the ```final-model-weights``` folder.
+
+### Training Curves
+As mentioned in the [Tuning](#tuning) section, for ```notePresenceRNN``` we start with ```lr=1e-5, wd=0, augment_noise=5```.
+<p align="center">
+  <img src="/images/notePresenceRNN_training_curve_overfit.png" alt="Training Curve Overfitting on notePresenceRNN" width="600"/>
+</p>
+We've noticed that the validation loss seems to plateau after around 20 epochs. Thus, we've trained the model from epoch 20 onwards with ```lr=1e-6, wd=0, augment_noise=15```.
+<p align="center">
+  <img src="/images/notePresenceRNN_training_curve.png" alt="Training Curve for notePresenceRNN" width="1000"/>
+</p>
+As seen, the final training loss is approximately 0.6, while the final validation loss plateaued around 0.68. 
+
+
+For ```noteColourRNN```, we've trained with ```lr=1e-6, wd=0, augment_noise=15```. The final training loss is approximately 0.67, while the final validation loss is approximately 0.68. ```noteColourRNN``` took considerably less epochs to plateau compared to ```notePresenceRNN```; again we believe this is due to ```notePresenceRNN``` relying much more on audio cues. 
+<p align="center">
+  <img src="/images/noteColourRNN_training_curve.png" alt="Training Curve for noteColourRNN" width="1000"/>
+</p>
+
+### Quantitative Evaluation
+
+As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
+
+We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taiko/823014) and [here](https://osu.ppy.sh/beatmapsets/1022420#taiko/2665992), Kantan difficulty for both) to compare. Since BCE only allows us to compare a probability sequence with the ground truth (as opposed to ground truth with ground truth), we instead decided to overfit our models to the first, and then compute the loss of the model on the second map.
+
+Overfitting ```notePresenceRNN``` to the first map, we have reached a training loss of 0.2327. Computing its loss on the second map, we obtain 0.5145. As for ```noteColourRNN```, it reached a training loss of 0.2268, and its loss on the second map is 0.7136. Thus, the best case loss for ```notePresenceRNN``` and ```noteColourRNN``` are approximately 0.5 and 0.7 respectively.
+
+Our final ```notePresenceRNN``` model achieved a validation loss of 0.68, which is still considerably higher than the best-case loss of 0.5. On the other hand, ```noteColourRNN``` achieved a validation loss of 0.68, which is actually lower compared to the best-case loss of 0.7, so indeed our ```noteColourRNN``` matches human performance. This interpretation should be taken with caution though, as the best-case loss of 0.7 was calculated between two maps only.
 
 ### Converting to *osu!* maps
 
@@ -206,14 +247,103 @@ To play the map:
 
 ### Qualitative Evaluation
 
-We've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
+We have produced two Taiko maps using the trained model. The following songs were used:
+- Tanchiky - School (BPM: offset: ). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
+- Bill Wurtz - School (BPM: offset: ). A video of the map can be found [here](https://www.youtube.com/watch?v=FnAFkdGqGAY).
+
+Neither song is in the training set.
+
+Overall, the ```notePresenceRNN``` model seemed to pick up percussion elements quite well. However, we've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
 - Low-intensity sections of music tend to have less percussion and more melodic elements. On the other hand, ```notePresenceRNN``` seems to focus on the percussion element of music, so the model could struggle when percussion is not present. Furthermore, we've limited ```fmax```, the max frequency for the spectrogram, to 5000 Hz; this frequency limit may cut off treble in low-intensity sections (where bass is limited).
 - In human-made Taiko maps, usually a break section would be placed upon a low-intensity musical verse. Our model has occassionally placed "break sections", albeit most of the time there are a handful of notes in the break section. We see this as an attempt by the model to imitate the human break section, but an incorrectly-placed break section can be penalized heavily by our loss (predicting no note when there is a note is penalized heavily).
 
+For ```noteColourRNN```, we see that the model prefers to place kats for high-pitched percussion and dons for low-pitched percussion. This is consistent with the pattern found in human-made Taiko maps (since hitting kats plays a sound effect that is higher-pitched, compared to hitting dons). 
+
+#### Surveying Beatmap Nominators
+
+In *osu!*, "Beatmap Nominators" (BNs) are Taiko map creators that have the power to promote other mapsets to ranked status, after the map passes a quality check process. Since Sloan is involved with the taiko mapping community, he is familiar with some BNs. Thus, to get other (qualified) people to evaluate the quality of our model, Sloan has sent the two maps produced by our model to a group of BNs, and asked the following questions to them:
+
+```
+Please look over the maps sent with this message and answer the following questions for one or both of them:
+
+What difficulty do you believe the map is intended to be, and why?
+
+Please provide your thoughts on the quality of the map (in particular, with respect to the note placement and colouring ONLY)
+
+Would you rank a mapset with this difficulty? If not, give some examples of what would have to change in order for you to be comfortable with ranking it. (in particular, with respect to the note placement and colouring ONLY)
+```
+
+Here are the responses:
+
+- Response from: radar ([*osu!* profile](https://osu.ppy.sh/users/7131099))
+  + Response:
+  ```
+  this is power:
+
+  1) i believe this to be of an oni difficulty, mainly due to the snapping used + the average 1/4 pattern length 
+
+  2) in general i believe this map to be low quality. some patterns used are a bit too difficult for the target difficulty (i.e. 02:16:239 (644,645,646,647,648,649,650) - 00:12:810 (61,62,63,64,65,66,67) - ) which may just be personal preference. i also see a significant lack of finishers used, as well as some color change nuances which most mappers would do that it misses (i.e. 00:55:239 - this entire basically don only section)
+
+  3) no, id likely need most of the patterning to be reworked to match a specific focus layer. as currently things seem to get pretty out of hand when sections significantly musically change (colors get all wacky and some rhythm gets beefed like 00:36:703 - being an unmapped sound despite its loudness)
+
+  school:
+
+  1) futsuu, since it follows common futsuu guidelines and rhythm use for the bpm
+
+  2) it seems to be alright, though missing a few key color changes. since its common for low difficulties to stick to a very clear cut layer, not having things like 00:14:849 (21) - 00:21:099 (31) - being color changed for percussion is a bit sad. also, some really weird rhythm blunders like 00:17:817 (25,26) - 
+
+  oh also 00:30:161 (47,48,49,50,51,52,53) - is too much within the context of the diff imo
+
+  3) i mean, this could definitely be modded to a rankable state cuz of length and stuff. however, in this state, i would not nominate it. changes to be made would be similar to point 2), as well as certain things laid out in the above maps point 3)
+  ```
+- Response from: Nifty ([*osu!* profile](https://osu.ppy.sh/users/4956097))
+  + Response:
+  ```
+  bill wurtz-
+  I think that this difficulty is meant to be a futsuu, since it breaks kantan guidelines by using 1/4, 
+  but does not include anything particularly muzukashii-level, except maybe 00:30:161 - .
+
+  The patterns and rhythms are very good until 00:06:099 - , where the song begins going off the rails, ignoring important parts, 
+  and missing obvious color choices. The snares could be consistently mapped as k, certain parts like 00:17:817 (25,26) - are completely ignoring emphasis.
+  Many parts of the map are quite good, such as 00:20:161 - to 00:28:286 - , the only obvious change would be to make 00:27:349 (43) - a k for the snare.
+  Like I mentioned earlier, the only place that doesn't particularly fit in a futsuu like the rest of the map is 00:30:161 - , so I would delete 00:30:317 (48) - .
+
+  I would not nominate this map, I probably wouldn't even accept to mod it because it has so many glaring issues, like I mentioned earlier.
+  The biggest part that would need changing is what layers of the music are being followed at certain points in time. Sometimes it's the bass,
+  others the drums, and others the vocals, but the switches are not obvious and sometimes clash with each other in ugly ways.
+
+  Tanchiky-
+  I think this difficulty is meant to be an oni because it uses common 1/4 but not many longer than 5 notes. 
+  It breaks muzukashii ranking criteria a lot but isn't difficult enough to an inner oni.
+
+  The rhythms in this map are pretty solid, with a few exceptions such as 00:29:953 - missing this note all the time and a few spots in 00:55:239 - .
+  The color choices, on the other hand, are not so stellar. The map is very monotonous, using mostly d notes, and at times is unbearably monotone such as at 01:47:739 - having 7 d 1/2 notes.
+  The patterns were very repetitive and a lot of emphasis was lost by omitting k's where they could have been placed, such as at 00:18:810 (93) - and 00:20:524 (102) - .
+  00:27:810 - This section is quite good, minus the missing note I mentioned earlier, the variation is nice and the rhythms make sense.
+  In general, this map has quite good structure, the difference between sections of the music is obvious and the rhythmic consistency is good and accurate.
+
+  I would not nominate this map because it is boring, the emphasis is lost in many places due to lack of color diversity, and the rhythms are too often incorrect or incomprehensible.
+  The largest section that would need change is from 00:55:239 - to 01:22:667 - , since it is not interesting, monotonous, and not consistently mapped to anything.
+  ```
+  
+#### Analysis
+  
+From the BN's responses, the following issues arise with our model:
+- The model seems to grasp the concept of difficulty poorly. Even though we've trained on Kantan difficulties, the two produced maps are more difficult than Kantan; in fact *This is Power* is considered an Oni by the two BNs. We believe that this is potentially due to ```note_presence_weight``` being set too high, discouraging the model from predicting no-note (even though many times no-note would be more appropriate in a Kantan difficulty).
+- The note colouring seems to be "monotonous" in a lot of places, despite ```noteColourRNN``` having lower validation loss than the "best case". We are not entirely sure why this is the case, but as noted before, ```noteColourRNN``` seems to predict kat for high-pitched percussion, while in reality Taiko note colouring is more subtle and complicated, where a non-Taiko player may not be able to tell "correct" colouring from "incorrect" colouring.
+- ```notePresenceRNN``` still has some occassional "rhythm blunders". This is expected, as we have only trained ```notePresenceRNN``` for a few hours, while the task of recognizing notes from audio is difficult since the input is high-dimensional.
+- The maps produced are "boring" - the model learned how to produce somewhat coherent Taiko maps, but in a mundane way that does not invoke creativity.
+- The note placement seems to not have a clear-cut "layer" of the audio - that is, the notes aren't consistently annotating a single instrument/sound in the music, and instead choosing from multiple instruments/sounds. 
+
+In the end, however, we believe that our model performed reasonably for the given task of Taiko map generation:
+- 
 
 ## Ethical Considerations
 
-In [Qualitative Evaluation](#qualitative-evaluation), all responses from BNs were obtained with their consent. 
+In [Qualitative Evaluation](#qualitative-evaluation), all responses from BNs were obtained with their consent. The following question is asked after the BN responds:
+```The maps you just reviewed were 100% generated by a machine learning model created for a deep learning project. Do you consent to your responses being included in our report?```
+
+The two produced maps used music from *osu!*'s "[Featured Artists](https://osu.ppy.sh/wiki/en/Featured_Artists)" - musical composers that make music specifically for *osu!* beatmaps.
 
 This project, with some further training, could be easily made into a more user-friendly Taiko Map Generator for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
 
@@ -235,24 +365,26 @@ Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)):
 - Wrote most of the helper functions in ```helper.py```.
 - Wrote a transformer model for this task (```transformer.py``` in older commits). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
 - Proposed different models that could solve this problem.
+- Performed surveying of BNs.
 
 Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Created the preprocessing code (with Sloan).
 - Helped write some of the helper functions in ```helper.py```.
-- Helped David with postprocessing.py
-- Trained the ```notePresenceRNN``` models on her computer (RTX 3080 Ti).
+- Helped David with postprocessing.py.
+- Trained the ```notePresenceRNN``` and ```noteColourRNN``` models on her computer (RTX 3080 Ti).
 - Wrote code to export the training curves to .csv files.
 
 Paul Zhang ([@sjorv](https://github.com/sjorv)): 
 - Created the initial RNN models (originally a unidirectional GRU without embedding).
 - Wrote the training code and the loss functions.
 - Optimized preprocessing and postprocessing code. 
-- Evaluated the model qualitatively, by creating *osu!Taiko* beatmaps using the model.
-- Wrote most of the code documentation, and produced the training curves.
+- Evaluated the model qualitatively as it trained, by creating *osu!Taiko* beatmaps using the model.
+- Wrote most of the code documentation, and produced some of the training curves.
 - Composed this README file.
 - Proposed and built consensus for this project.
 
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote the original code for ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Wrote ```get_npy_stats.py``` to obtain statistics on the dataset.
-- Trained the ```noteColourRNN``` and ```noteFinisherRNN``` models on his computer (RTX 3070).
+- Performed the grid search for ```noteColourRNN``` hyperparameters on his computer (RTX 3070).
+- Attempted to train the ```noteFinisherRNN``` (but the result was not good).
