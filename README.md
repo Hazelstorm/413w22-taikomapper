@@ -221,7 +221,7 @@ For ```noteColourRNN```, we've trained with ```lr=1e-6, wd=0, augment_noise=15``
 
 ### Quantitative Evaluation
 
-The final training losses for our models were ```0.6369``` and ```0.6731```` for notePresenceRNN and noteColourRNN respectively.
+The final training losses for our models were ```0.6369``` and ```0.6731``` for notePresenceRNN and noteColourRNN respectively.
 
 As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
 
