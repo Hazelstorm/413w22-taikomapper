@@ -143,7 +143,7 @@ Here are some other per-difficulty statistics:
 * Note that many songs are counted repeatedly, once for each difficulty.
 
 ### Data Split
-We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model. Also, the validation loss is only computed every 10 epochs of training, to reduce training time. 
+We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model.
 
 ## Quantitative Measures
 We have defined different loss measures for the three models. 
@@ -222,6 +222,8 @@ For ```noteColourRNN```, we've trained with ```lr=1e-6, wd=0, augment_noise=15``
 
 ### Quantitative Evaluation
 
+The final training losses for our models were ```0.6369``` and ```0.6731```` for notePresenceRNN and noteColourRNN respectively.
+
 As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
 
 We found two such ranked maps ([here](https://osu.ppy.sh/beatmapsets/375111#taiko/823014) and [here](https://osu.ppy.sh/beatmapsets/1022420#taiko/2665992), Kantan difficulty for both) to compare. Since BCE only allows us to compare a probability sequence with the ground truth (as opposed to ground truth with ground truth), we instead decided to overfit our models to the first, and then compute the loss of the model on the second map.
@@ -248,10 +250,10 @@ To play the map:
 ### Qualitative Evaluation
 
 We have produced two Taiko maps using the trained model. The following songs were used:
-- Tanchiky - School (BPM: offset: ). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
-- Bill Wurtz - School (BPM: offset: ). A video of the map can be found [here](https://www.youtube.com/watch?v=FnAFkdGqGAY).
+- Tanchiky - School (BPM: 140, offset: 382). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
+- Bill Wurtz - School (BPM: 96, offset: 1099). A video of the map can be found [here](https://www.youtube.com/watch?v=FnAFkdGqGAY).
 
-Neither song is in the training set.
+Neither song is in the training set. The latter song (Bill Wurtz - School) was chosen as it seems to have more complex rhythm, overlayed with vocals. 
 
 Overall, the ```notePresenceRNN``` model seemed to pick up percussion elements quite well. However, we've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
 - Low-intensity sections of music tend to have less percussion and more melodic elements. On the other hand, ```notePresenceRNN``` seems to focus on the percussion element of music, so the model could struggle when percussion is not present. Furthermore, we've limited ```fmax```, the max frequency for the spectrogram, to 5000 Hz; this frequency limit may cut off treble in low-intensity sections (where bass is limited).
@@ -335,15 +337,19 @@ From the BN's responses, the following issues arise with our model:
 - The maps produced are "boring" - the model learned how to produce somewhat coherent Taiko maps, but in a mundane way that does not invoke creativity.
 - The note placement seems to not have a clear-cut "layer" of the audio - that is, the notes aren't consistently annotating a single instrument/sound in the music, and instead choosing from multiple instruments/sounds. 
 
-In the end, however, we believe that our model performed reasonably for the given task of Taiko map generation:
-- 
+In the end, however, we believe that our model performed beyond our expectations for the given task of Taiko map generation:
+- Our computational resources were somewhat limited due to time constraints. Also, we were unable to use the university computers for training - our dataset is >60GB, and we encountered the disk quota limit very quickly.
+- Taiko maps for the same song may differ. Although there is general consensus for some aspects of Taiko mapping (such as consistency), detailed interpretations of audio may differ from human to human. Hence, even if our model predicts maps reasonably, the ground truth may be different, and the model would be penalized for that. 
+- Creating a Taiko map is somewhat difficult. [*osumapper*](https://github.com/kotritrona/osumapper), another project that can create Taiko maps (as well as maps in other *osu!* game modes), seemed to also have issues with note placement from time to time, and its finisher placement is also quite inconsistent.
+
+On the other hand, we still do not expect our model to outperform a human Taiko map creator, due to the aforementioned issues.
 
 ## Ethical Considerations
 
 In [Qualitative Evaluation](#qualitative-evaluation), all responses from BNs were obtained with their consent. The following question is asked after the BN responds:
 ```The maps you just reviewed were 100% generated by a machine learning model created for a deep learning project. Do you consent to your responses being included in our report?```
 
-The two produced maps used music from *osu!*'s "[Featured Artists](https://osu.ppy.sh/wiki/en/Featured_Artists)" - musical composers that make music specifically for *osu!* beatmaps.
+To avoid copyright issues, the two maps produced by our model used music from *osu!*'s "[Featured Artists](https://osu.ppy.sh/wiki/en/Featured_Artists)" - musical composers that have licensed their music to *osu!* to be used for creating beatmaps.
 
 This project, with some further training, could be easily made into a more user-friendly Taiko Map Generator for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
 
@@ -351,11 +357,11 @@ The most immediate ethical issue regarding this project concerns music licensing
 
 On the other hand, *osu!* developers explicitly state that they do not profit from uploaded content, and instead [reinvest](https://osu.ppy.sh/legal/en/Music_licensing) any donations received into music licensing fees. As well, our project does not profit from music in the dataset. However, a third-party could take our pretrained model and use it to create a for-profit rhythm game on their own; we are currently unaware of an appropriate software license to prevent this scenario. 
 
-Also, the audio files in ranked mapsets (from which we extracted the training dataset) are [capped at 192kbps](https://osu.ppy.sh/wiki/en/Ranking_Criteria); this discourages pirating of music from the *osu!* website (which also requires users to register in order to download mapsets). Furthermore, our machine learning model does not explicitly reproduce the music; it only generates an *osu!Taiko* beatmap for the music. However, an additional ethical consideration would be that a successful Taiko map generator may encourage users to download music files from external sources, in order to create maps on these songs.
+Also, the audio files in ranked mapsets (from which we extracted the training dataset) are [capped at 192kbps](https://osu.ppy.sh/wiki/en/Ranking_Criteria); this discourages pirating of music from the *osu!* website (which also requires users to register in order to download mapsets). Furthermore, our machine learning model does not explicitly reproduce the music; it only generates an *osu!Taiko* beatmap for the music. However, an additional ethical consideration would be that a successful Taiko map generator may encourage users to download music files from external sources, in order to create maps on these downloaded songs.
 
-Our model performs better on certain genres of music. The "simplicity" of a musical genre may affect our model's performance, but we believe that the biggest contributor to this bias is a skewed dataset - the dataset only contains songs for which somebody has created a beatmap, and the *osu!* community tends to prefer mapping and playing certain genres of music over others (both due to personal preference and due to suitability for a rhythm game). Even worse, our model cannot process musical genres which often contain variable tempo such as classical music; this decision to not consider multi-tempo music was made in order to simplify our code. Unfortunately we do not know how to resolve this issue, as we are unable to obtain Taiko beatmaps for a wider variety of musical genres. 
+Our model performs better on certain genres of music. The "simplicity" and presence of percussion in a musical genre may affect our model's performance, but we believe that the biggest contributor to this bias is a skewed dataset - the dataset only contains songs for which somebody has created a beatmap, and the *osu!* community tends to prefer mapping and playing certain genres of music over others (both due to personal preference and due to suitability for a rhythm game). Even worse, our model cannot process musical genres which often contain variable tempo such as classical music; this decision to not consider multi-tempo music was made in order to simplify our code. Unfortunately we do not know how to resolve genre bias in our dataset, as we are unable to obtain Taiko beatmaps for a wider variety of musical genres. 
 
-We've noticed that our model tends to generate maps with gameplay difficulty lying in the Futsuu to Muzukashii range, despite training on only Kantan difficulties. Thus, only players at a certain skill level (between Futsuu and Muzukashii) may find our model useful. We believe this discrepancy between training and output difficulty is due te ```note_presence_weight``` - not placing notes when the ground truth contains a note is penalized too much. We could also train distinct models for Oni to produce even harder Taiko maps. Unfortunately, due to time constraints and limited computational resources, we are unable to train such models.
+We've noticed that our model tends to generate maps with gameplay difficulty lying in the Futsuu to Oni range, despite training on only Kantan difficulties. Thus, only players at a certain skill level (between Futsuu and Oni) may find our model useful. We believe this discrepancy between training and output difficulty is due to ```note_presence_weight``` - not placing notes when the ground truth contains a note is penalized too much. We could also train distinct models for difficulties beyond Oni to produce even harder Taiko maps. Unfortunately, due to time constraints and limited computational resources, we are unable to train such models.
 
 Lastly, if our model were successful, our model could create many Taiko beatmaps at once. This could potentially displace the role of Taiko mappers, and also overwhelm the "Beatmap Nominators" - a group of mappers that quality check maps and place maps in the "ranked" status. However, we believe that this isn't an issue for now; our current model's quality does not yet compete with human mappers, at least for an experienced *osu!Taiko* player. Even if our model's ability to produce sequences of Taiko notes resemebled that of a human mapper, there are still aesthetic enhancements that need to be made (such as "hitsounds", which are custom sound effects played upon tapping the drum). Thus, our model is unlikely to generate maps on its own that pass the quality check.
 
