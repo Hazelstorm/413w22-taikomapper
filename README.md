@@ -375,7 +375,9 @@ Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)):
 - Wrote most of the helper functions in ```helper.py```.
 - Wrote a transformer model for this task (```transformer.py``` in older commits). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
 - Proposed different models that could solve this problem.
+- Recorded gameplay footage.
 - Performed surveying of BNs.
+- Performed proofreading of this README file.
 
 Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Created the preprocessing code (with Sloan).
