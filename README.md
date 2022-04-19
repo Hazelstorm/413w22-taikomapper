@@ -28,7 +28,7 @@ TaikoMapper consists of three seq2seq models (found in ```rnn.py```) that togeth
 
 To preprocess an audio file, we require the ```BPM``` and ```offset``` of the song (note that TaikoMapper only supports songs that don't have varying tempos). With inspiration from [*Osu! Beatmap Generator*](https://github.com/Syps/osu_beatmap_generator), the audio is first converted into a [mel spectrogram](https://en.wikipedia.org/wiki/Mel_scale) using [```librosa```](https://librosa.org/doc/latest/generated/librosa.feature.melspectrogram.html). The mel scale divides the total range of frequencies (```fmin``` and ```fmax``` in ```hyper_param.py```) into frequency bands of equal logarithmic length. The spectrogram produced by this procedure has shape ```L x n_mels```, where ```L``` is the length of the audio file (in milliseconds) and ```n_mels``` (specified in ```hyper_param.py```) is the number of frequency bands (or "mel"s) in the frequency range. 
 
-Then, we extract a time window from the spectrogram around each "snap", and place the time windows into a sequence.  A "snap" is a time point on the boundary of each 1/4 regular subdivision of a measure/bar, the length of one bar being 60000/BPM milliseconds (for example, in a 100BPM song, each bar is 600ms in length, so each snap is 150ms apart. If a bar begins at time 1000ms, the snaps occur at 1000ms, 1150ms, 1300ms, 1450ms, ...). The time window size is specified by ```window_size``` in ```hyper_params.py```; we extract ```window_size``` ms to the left and right of each snap from the spectrogram. The resulting sequence of time windows has size ```N x (2 * window_size + 1) x n_mels```, with ```N``` being the total number of snaps in the audio file. We flatten the spectrogram windows to instead have size ```N x ((2 * window_size + 1) * n_mels)```.
+Then, we extract a time window from the spectrogram around each "snap", and place the time windows into a sequence.  A "1/4 snap" (simply referred to as "snap" in this project) is a time point on the boundary of each 1/4 regular subdivision of a measure/bar, the length of one bar being 60000/BPM milliseconds. For example, in a 100BPM song, each bar is 600ms in length, so each 1/4 snap is 150ms apart. If a bar begins at time 1000ms, the snaps occur at 1000ms, 1150ms, 1300ms, 1450ms, and so on. The time window size is specified by ```window_size``` in ```hyper_params.py```; we extract ```window_size``` ms to the left and right of each snap from the spectrogram. The resulting sequence of time windows has size ```N x (2 * window_size + 1) x n_mels```, with ```N``` being the total number of snaps in the audio file. We flatten the spectrogram windows to instead have size ```N x ((2 * window_size + 1) * n_mels)```.
 
 Taikomapper receives this ```N x ((2 * window_size + 1) * n_mels)``` sequence of spectrogram windows around each snap, and produces three sequences of length ```N``` (one from each of  ```notePresenceRNN```, ```noteColourRNN``` and ```noteFinisherRNN```). The first sequnece determines the presence or absence of a note occurring on the respective snap; the second sequence determines the colour of the note occurring on that snap (don or kat), if any; the third sequence determines whether the note occuring on that snap is a finisher
 
@@ -77,12 +77,11 @@ Thus, using our computations above,
 1,453,569 trainable parameters.
 - ```noteColourRNN``` and ```noteFinisherRNN``` both have ```((2 * 32 + 1) * 40 + 2) * 256 = 666112``` parameters in its embedding layer, ```6 * 256 * 256 + 6 * 256 * 256 + 3 * 256 = 787200``` trainable parameters in its GRU, and ```2 * 256 + 1 = 513``` trainable parameters in its fully-connected layer. ```noteColourRNN``` and ```noteFinisherRNN``` both have 1,453,825 parameters in total.
 
-Combining all three models together, we have 4,361,219 parameters. Without the deprecated ```noteFinisherRNN```, we have 2,907,394 parameters.
+Without the deprecated ```noteFinisherRNN```, we have 2,907,394 parameters in total. With ```noteFinisherRNN``` we have 4,361,219 parameters. 
 
-<!---
-successful and unsuccessful example
---->
+### Model Example
 
+See [Qualitative Evaluation](#qualitative-evaluation). In our case, ```notePresenceRNN``` tended to follow inconsistent rhythms in "break sections" (explained in [Qualitative Evaluation](#qualitative-evaluation)), while in general ```notePresenceRNN```'s note placement is reasonable in high-intensity sections with percussion. It is more difficult to directly evaluate where ```noteColourRNN``` makes a "correct" versus an "incorrect" prediction.
 
 ## Data and Preprocessing
 
@@ -98,17 +97,17 @@ First, create a ```data/``` directory in this repository's folder (in the same f
 
 The Taiko mapset dump categorizes the mapsets by year. Each mapset is in .osz format, used for compressed *osu!* mapsets. To extract the mapsets, copy the .osz files into the ```osu!/Songs``` directory (replace ```osu!/``` with where *osu!* is installed, if it's installed in a different location), and launch *osu!*. In *osu!*, go to the song selection screen by clicking the large *osu!* circle and selecting *Play -> Solo*. *osu!* will begin extracting the .osz files inside the ```Songs``` directory. Once finished, the extracted mapsets should be appear as folders in the ```osu!/Songs``` directory. Copy the mapset folders into ```data/20XX``` according to the mapset's year. We recommend this extraction process be done one year at a time, so that it is easy to sort the mapsets by year.
 
-Having all the mapsets in the ```data/``` directory, run ```preprocessing.py```. ```preprocessing.py`` performs the following:
+Having all the mapsets in the ```data/``` directory, run ```preprocessing.py```. ```preprocessing.py``` performs the following:
 - ```create_path_dict()```: Create the file ```data/data.pkl```. For each mapset folder in ```data/```, find the audio file, and the .osu files. For any .osu file that corresponds to a Kantan, Futsuu, Muzukashii, or Oni difficulty, the .osu file's aboslute path and the audio file's absolute path is stored in ```data.pkl```.
 - ```create_data()```: Reading from ```data.pkl```, each mapset from ```data.pkl``` has its audio file converted into a mel spectrogram (not yet converted to spectrogram windows), as described in the [Introduction](#introduction) section. Each difficulty in the mapset is converted into a time series of ```N``` notes (```N``` being the number of snaps in the song), and also has its timing data (BPM, stored as ```bar_len = 60000/BPM```) and offset extracted. Both the spectrogram and notes time series are numpy arrays; these numpy arrays are dumped into the ```data/npy``` directory. The BPM and offset are stored in a json file. While processing, ```create_data()``` prints a warning and skips any map that our model cannot process (due to issues such as varying tempo or unsnapped notes). *Please note that create_data() takes a few seconds to load each audio file using librosa, and hence ```create_data()``` may take a couple hours to preprocess all mapsets.*
 
 The conversion from spectrogram to spectrogram windows is performed during training time, as we wanted the ability to change the hyperparameter ```window_size``` without preprocessing.
 
 ### Data Representation
-Each map in the dataset is represented by three of files:
+Each map in the dataset is represented by three files:
 - ```audio_data.npy```: This file contains the spectrogram (not split into windows), which is a numpy array of size ```[L, n_mels]```, where ```L``` is the length of the song in milliseconds.
 - ```timing_data.json```: This is a json object containing keys ```offset``` and ```bar_len```. These values are not used within the models, but they are used for data preprocessing and are required to construct spectrogram windows from the spectrogram.
-- ```notes_data.npy```: This contains the sequences of notes, as a numpy array of length ```N```. Each entry in the array is an integer from 0-4; the integer values are mapped to the note type as follows (note that finisher notes are deprecated but remain as a code artefact; see the [Model](#model) section above):
+- ```notes_data.npy```: This contains the sequences of notes, as a numpy array of length ```N``` (number of snaps). Each entry in the array is an integer from 0-4; the integer values are mapped to the note type as follows (note that finisher notes are deprecated but remain as a code artefact; see the [Model](#model) section above):
 
 <div align="center">
   
@@ -124,7 +123,7 @@ Each map in the dataset is represented by three of files:
 
 
 ### Data Summary
-There are a total of 2795 ranked mapsets from 2013-2021 containing a difficulty from Kantan, Futsuu, Muzukashii, and Oni. In total, there are 9113 such Taiko difficulties. However, not all mapsets are processable by our model, due to issues as mentioned previously. In total (using ```get_npy_stats.py```), there are only 5887 difficulties that are usable in our dataset.
+There are a total of 2795 ranked mapsets from 2013-2021 containing a difficulty from Kantan, Futsuu, Muzukashii, and Oni. In total, there are 9113 such Taiko difficulties. However, not all mapsets are processable by our model due to issues such as variable tempo. In total (using ```get_npy_stats.py```), there are only 5887 difficulties that are usable in our dataset.
 
 Here are some other per-difficulty statistics:
 
@@ -143,7 +142,7 @@ Here are some other per-difficulty statistics:
 * Note that many songs are counted repeatedly, once for each difficulty.
 
 ### Data Split
-We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model. Also, the validation loss is only computed every 10 epochs of training, to reduce training time. 
+We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model.
 
 ## Quantitative Measures
 We have defined different loss measures for the three models. 
@@ -192,16 +191,16 @@ For ```noteColourRNN```, we similarly performed a grid search on the hyperparame
 
 Again, ```lr=1e-6``` converges slowly. However, ```lr=1e-5``` seems to overfit rather quickly, so instead we use ```lr=1e-6``` from the start.. The effect of weight decay and augment noise is similar to that for ```notePresenceRNN```; again we use ```wd=0``` and ```augment_noise=5```.
 
-## Training and Results
-
-As mentioned in [Tuning](#tuning), we've trained ```notePresenceRNN``` with ```lr=1e-5, wd=0, augment_noise=5``` until it started overfitting (epoch 20), then switched to  ```lr=1e-5, wd=0, augment_noise=10``` until the training loss plateaued, and then finished with ```lr=1e-6, wd=0, augment_noise=10```. 
-
-### Justification for Choice of Model
+## Justification for Choice of Model
 Since creating a Taiko map is a seq2seq problem (audio file to sequence of notes), we have opted to use RNNs. However, in human-made Taiko maps, there tend to be some simple predefined patterns such as the "triple" (three consecutive notes spaced 1/4 apart). However, Taiko maps also have more complicated structures such as "break sections" where there are no notes (and the player waits and listen to the music until the break section ends, where they start playing again). Thus, having the model learn long-term dependencies would be preferrable, which is why we've opted to use a GRU. The GRU is bidirectional, as in Taiko, note placement should be made accordingly with notes in the future, as well as notes from the past. For example, if the model sees that there is a note exactly one snap away from the current snap, the model should refrain from placing a note on the current snap, unless the model wants to form a pattern of notes such as the triple.
 
 We've originally intended to use a Transformer as our final model; however we've quickly encounted issues with limited GPU memory. At that point in the project, we were feeding the TaikoMapper millisecond-by-millisecond audio data (instead of audio windows around each snap). With this, the input consists of sequences of length up to 300000 (5 minutes), while the Transformer's attention mechanism requires ```O(n^2)``` memory to store the attention weights, where ```n``` is the sequence length. Even when we attempted to limit the maximum song length to 2 minutes (120000ms), the model attempted to allocate >500GB of video memory. We have considered using a [reformer](https://ai.googleblog.com/2020/01/reformer-efficient-transformer.html) instead, but ultimately just decided to using a GRU for simplicity (and we switched to using audio windows instead of per-ms audio data after this decision was made).
 
 It also turns out that the input embedding layer is essential for the model to produce reasonable results. Originally, without the embedding layer, our model failed to produce any result that captures musical rhythm; the model produced either sporadic notes or "note spam", and failed to learn common Taiko patterns such as the triple.
+
+## Training and Results
+
+The final weights for ```notePresenceRNN``` and ```noteColourRNN``` can be found in the ```final-model-weights``` folder.
 
 ### Training Curves
 As mentioned in the [Tuning](#tuning) section, for ```notePresenceRNN``` we start with ```lr=1e-5, wd=0, augment_noise=5```.
@@ -221,6 +220,8 @@ For ```noteColourRNN```, we've trained with ```lr=1e-6, wd=0, augment_noise=15``
 </p>
 
 ### Quantitative Evaluation
+
+The final training losses for our models were ```0.6369``` and ```0.6731```` for notePresenceRNN and noteColourRNN respectively.
 
 As different humans may produce different maps for the same Taiko song, we aim to find an approximate "best case" loss, by computing the loss on two maps with the same song and difficulty, produced by different humans. 
 
@@ -247,14 +248,112 @@ To play the map:
 
 ### Qualitative Evaluation
 
-We've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
+We have produced two Taiko maps using the trained model. The following songs were used:
+- Tanchiky - School (BPM: 140, offset: 382). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
+- Bill Wurtz - School (BPM: 96, offset: 1099). A video of the map can be found [here](https://www.youtube.com/watch?v=FnAFkdGqGAY).
+
+Neither song is in the training set. The latter song (Bill Wurtz - School) was chosen as it seems to have more complex rhythm, overlayed with vocals. 
+
+Overall, the ```notePresenceRNN``` model seemed to pick up percussion elements quite well. However, we've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
 - Low-intensity sections of music tend to have less percussion and more melodic elements. On the other hand, ```notePresenceRNN``` seems to focus on the percussion element of music, so the model could struggle when percussion is not present. Furthermore, we've limited ```fmax```, the max frequency for the spectrogram, to 5000 Hz; this frequency limit may cut off treble in low-intensity sections (where bass is limited).
 - In human-made Taiko maps, usually a break section would be placed upon a low-intensity musical verse. Our model has occassionally placed "break sections", albeit most of the time there are a handful of notes in the break section. We see this as an attempt by the model to imitate the human break section, but an incorrectly-placed break section can be penalized heavily by our loss (predicting no note when there is a note is penalized heavily).
 
+For ```noteColourRNN```, we see that the model prefers to place kats for high-pitched percussion and dons for low-pitched percussion. This is consistent with the pattern found in human-made Taiko maps (since hitting kats plays a sound effect that is higher-pitched, compared to hitting dons). 
+
+#### Surveying Beatmap Nominators
+
+In *osu!*, "Beatmap Nominators" (BNs) are Taiko map creators that have the power to promote other mapsets to ranked status, after the map passes a quality check process. Since Sloan is involved with the taiko mapping community, he is familiar with some BNs. Thus, to get other (qualified) people to evaluate the quality of our model, Sloan has sent the two maps produced by our model to a group of BNs, and asked the following questions to them:
+
+```
+Please look over the maps sent with this message and answer the following questions for one or both of them:
+
+What difficulty do you believe the map is intended to be, and why?
+
+Please provide your thoughts on the quality of the map (in particular, with respect to the note placement and colouring ONLY)
+
+Would you rank a mapset with this difficulty? If not, give some examples of what would have to change in order for you to be comfortable with ranking it. (in particular, with respect to the note placement and colouring ONLY)
+```
+
+Here are the responses:
+
+- Response from: radar ([*osu!* profile](https://osu.ppy.sh/users/7131099))
+  ```
+  this is power:
+
+  1) i believe this to be of an oni difficulty, mainly due to the snapping used + the average 1/4 pattern length 
+
+  2) in general i believe this map to be low quality. some patterns used are a bit too difficult for the target difficulty (i.e. 02:16:239 (644,645,646,647,648,649,650) - 00:12:810 (61,62,63,64,65,66,67) - ) which may just be personal preference. i also see a significant lack of finishers used, as well as some color change nuances which most mappers would do that it misses (i.e. 00:55:239 - this entire basically don only section)
+
+  3) no, id likely need most of the patterning to be reworked to match a specific focus layer. as currently things seem to get pretty out of hand when sections significantly musically change (colors get all wacky and some rhythm gets beefed like 00:36:703 - being an unmapped sound despite its loudness)
+
+  school:
+
+  1) futsuu, since it follows common futsuu guidelines and rhythm use for the bpm
+
+  2) it seems to be alright, though missing a few key color changes. since its common for low difficulties to stick to a very clear cut layer, not having things like 00:14:849 (21) - 00:21:099 (31) - being color changed for percussion is a bit sad. also, some really weird rhythm blunders like 00:17:817 (25,26) - 
+
+  oh also 00:30:161 (47,48,49,50,51,52,53) - is too much within the context of the diff imo
+
+  3) i mean, this could definitely be modded to a rankable state cuz of length and stuff. however, in this state, i would not nominate it. changes to be made would be similar to point 2), as well as certain things laid out in the above maps point 3)
+  ```
+- Response from: Nifty ([*osu!* profile](https://osu.ppy.sh/users/4956097))
+  ```
+  bill wurtz-
+  I think that this difficulty is meant to be a futsuu, since it breaks kantan guidelines by using 1/4, 
+  but does not include anything particularly muzukashii-level, except maybe 00:30:161 - .
+
+  The patterns and rhythms are very good until 00:06:099 - , where the song begins going off the rails, ignoring important parts, 
+  and missing obvious color choices. The snares could be consistently mapped as k, certain parts like 00:17:817 (25,26) - are completely ignoring emphasis.
+  Many parts of the map are quite good, such as 00:20:161 - to 00:28:286 - , the only obvious change would be to make 00:27:349 (43) - a k for the snare.
+  Like I mentioned earlier, the only place that doesn't particularly fit in a futsuu like the rest of the map is 00:30:161 - , so I would delete 00:30:317 (48) - .
+
+  I would not nominate this map, I probably wouldn't even accept to mod it because it has so many glaring issues, like I mentioned earlier.
+  The biggest part that would need changing is what layers of the music are being followed at certain points in time. Sometimes it's the bass,
+  others the drums, and others the vocals, but the switches are not obvious and sometimes clash with each other in ugly ways.
+
+  Tanchiky-
+  I think this difficulty is meant to be an oni because it uses common 1/4 but not many longer than 5 notes. 
+  It breaks muzukashii ranking criteria a lot but isn't difficult enough to an inner oni.
+
+  The rhythms in this map are pretty solid, with a few exceptions such as 00:29:953 - missing this note all the time and a few spots in 00:55:239 - .
+  The color choices, on the other hand, are not so stellar. The map is very monotonous, using mostly d notes, and at times is unbearably monotone such as at 01:47:739 - having 7 d 1/2 notes.
+  The patterns were very repetitive and a lot of emphasis was lost by omitting k's where they could have been placed, such as at 00:18:810 (93) - and 00:20:524 (102) - .
+  00:27:810 - This section is quite good, minus the missing note I mentioned earlier, the variation is nice and the rhythms make sense.
+  In general, this map has quite good structure, the difference between sections of the music is obvious and the rhythmic consistency is good and accurate.
+
+  I would not nominate this map because it is boring, the emphasis is lost in many places due to lack of color diversity, and the rhythms are too often incorrect or incomprehensible.
+  The largest section that would need change is from 00:55:239 - to 01:22:667 - , since it is not interesting, monotonous, and not consistently mapped to anything.
+  ```
+  
+- Response from: Dusk- ([*osu!* profile](https://osu.ppy.sh/users/6092181))
+  ```
+  this is power seems to be intended as an oni. note placement is ok for the most part however i have no idea what the don heavy section in the middle was being mapped to. i’m not using earphones right now so maybe it’s some type of bass that i can’t hear. colouring wise the map is quite repetitive and becomes mundane especially in the final minute. also the dddkkkd stood out as being a pattern that isn’t used in oni at this type of bpm. a pattern with less colour changes or a split pattern would work better here and it’s one of the longest patterns in the map even though it’s not in the chorus. based on the reasons above i wouldn’t nominate a map that had this difficulty
+
+  school seems to be intended as a very easy muzukashii. it doesn’t really have a structure that i was able to pick up and associate a constant rhythm to due to a lot of the isolated notes. colouring wise i don’t really have much to say but i wouldn’t nominate this either due to the structure and how awkward the isolated don heavy sections play
+  ```
+  
+#### Analysis
+  
+From the BN's responses, the following issues arise with our model:
+- The model seems to grasp the concept of difficulty poorly. Even though we've trained on Kantan difficulties, the two produced maps are more difficult than Kantan; in fact *This is Power* is considered an Oni by the two BNs. We believe that this is potentially due to ```note_presence_weight``` being set too high, discouraging the model from predicting no-note (even though many times no-note would be more appropriate in a Kantan difficulty).
+- The note colouring seems to be "monotonous" in a lot of places, despite ```noteColourRNN``` having lower validation loss than the "best case". We are not entirely sure why this is the case, but as noted before, ```noteColourRNN``` seems to predict kat for high-pitched percussion, while in reality Taiko note colouring is more subtle and complicated, where a non-Taiko player may not be able to tell "correct" colouring from "incorrect" colouring.
+- ```notePresenceRNN``` still has some occassional "rhythm blunders". This is expected, as we have only trained ```notePresenceRNN``` for a few hours, while the task of recognizing notes from audio is difficult since the input is high-dimensional.
+- The maps produced are "boring" - the model learned how to produce somewhat coherent Taiko maps, but in a mundane way that does not invoke creativity.
+- The note placement seems to not have a clear-cut "layer" of the audio - that is, the notes aren't consistently annotating a single instrument/sound in the music, and instead choosing from multiple instruments/sounds. 
+
+In the end, however, we believe that our model performed beyond our expectations for the given task of Taiko map generation:
+- Our computational resources were somewhat limited due to time constraints. Also, we were unable to use the university computers for training - our dataset is >60GB, and we encountered the disk quota limit very quickly.
+- Taiko maps for the same song may differ. Although there is general consensus for some aspects of Taiko mapping (such as consistency), detailed interpretations of audio may differ from human to human. Hence, even if our model predicts maps reasonably, the ground truth may be different, and the model would be penalized for that. 
+- Creating a Taiko map is somewhat difficult. [*osumapper*](https://github.com/kotritrona/osumapper), another project that can create Taiko maps (as well as maps in other *osu!* game modes), seemed to also have issues with note placement from time to time, and its finisher placement is also quite inconsistent.
+
+On the other hand, we still do not expect our model to outperform a human Taiko map creator, due to the aforementioned issues.
 
 ## Ethical Considerations
 
-In [Qualitative Evaluation](#qualitative-evaluation), all responses from BNs were obtained with their consent. 
+In [Qualitative Evaluation](#qualitative-evaluation), all responses from BNs were obtained with their consent. The following question is asked after the BN responds:
+```The maps you just reviewed were 100% generated by a machine learning model created for a deep learning project. Do you consent to your responses being included in our report?```
+
+To avoid copyright issues, the two maps produced by our model used music from *osu!*'s "[Featured Artists](https://osu.ppy.sh/wiki/en/Featured_Artists)" - musical composers that have licensed their music to *osu!* to be used for creating beatmaps.
 
 This project, with some further training, could be easily made into a more user-friendly Taiko Map Generator for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
 
@@ -262,11 +361,11 @@ The most immediate ethical issue regarding this project concerns music licensing
 
 On the other hand, *osu!* developers explicitly state that they do not profit from uploaded content, and instead [reinvest](https://osu.ppy.sh/legal/en/Music_licensing) any donations received into music licensing fees. As well, our project does not profit from music in the dataset. However, a third-party could take our pretrained model and use it to create a for-profit rhythm game on their own; we are currently unaware of an appropriate software license to prevent this scenario. 
 
-Also, the audio files in ranked mapsets (from which we extracted the training dataset) are [capped at 192kbps](https://osu.ppy.sh/wiki/en/Ranking_Criteria); this discourages pirating of music from the *osu!* website (which also requires users to register in order to download mapsets). Furthermore, our machine learning model does not explicitly reproduce the music; it only generates an *osu!Taiko* beatmap for the music. However, an additional ethical consideration would be that a successful Taiko map generator may encourage users to download music files from external sources, in order to create maps on these songs.
+Also, the audio files in ranked mapsets (from which we extracted the training dataset) are [capped at 192kbps](https://osu.ppy.sh/wiki/en/Ranking_Criteria); this discourages pirating of music from the *osu!* website (which also requires users to register in order to download mapsets). Furthermore, our machine learning model does not explicitly reproduce the music; it only generates an *osu!Taiko* beatmap for the music. However, an additional ethical consideration would be that a successful Taiko map generator may encourage users to download music files from external sources, in order to create maps on these downloaded songs.
 
-Our model performs better on certain genres of music. The "simplicity" of a musical genre may affect our model's performance, but we believe that the biggest contributor to this bias is a skewed dataset - the dataset only contains songs for which somebody has created a beatmap, and the *osu!* community tends to prefer mapping and playing certain genres of music over others (both due to personal preference and due to suitability for a rhythm game). Even worse, our model cannot process musical genres which often contain variable tempo such as classical music; this decision to not consider multi-tempo music was made in order to simplify our code. Unfortunately we do not know how to resolve this issue, as we are unable to obtain Taiko beatmaps for a wider variety of musical genres. 
+Our model performs better on certain genres of music. The "simplicity" and presence of percussion in a musical genre may affect our model's performance, but we believe that the biggest contributor to this bias is a skewed dataset - the dataset only contains songs for which somebody has created a beatmap, and the *osu!* community tends to prefer mapping and playing certain genres of music over others (both due to personal preference and due to suitability for a rhythm game). Even worse, our model cannot process musical genres which often contain variable tempo such as classical music; this decision to not consider multi-tempo music was made in order to simplify our code. Unfortunately we do not know how to resolve genre bias in our dataset, as we are unable to obtain Taiko beatmaps for a wider variety of musical genres. 
 
-We've noticed that our model tends to generate maps with gameplay difficulty lying in the Futsuu to Muzukashii range, despite training on only Kantan difficulties. Thus, only players at a certain skill level (between Futsuu and Muzukashii) may find our model useful. We believe this discrepancy between training and output difficulty is due te ```note_presence_weight``` - not placing notes when the ground truth contains a note is penalized too much. We could also train distinct models for Oni to produce even harder Taiko maps. Unfortunately, due to time constraints and limited computational resources, we are unable to train such models.
+We've noticed that our model tends to generate maps with gameplay difficulty lying in the Futsuu to Oni range, despite training on only Kantan difficulties. Thus, only players at a certain skill level (between Futsuu and Oni) may find our model useful. We believe this discrepancy between training and output difficulty is due to ```note_presence_weight``` - not placing notes when the ground truth contains a note is penalized too much. We could also train distinct models for difficulties beyond Oni to produce even harder Taiko maps. Unfortunately, due to time constraints and limited computational resources, we are unable to train such models.
 
 Lastly, if our model were successful, our model could create many Taiko beatmaps at once. This could potentially displace the role of Taiko mappers, and also overwhelm the "Beatmap Nominators" - a group of mappers that quality check maps and place maps in the "ranked" status. However, we believe that this isn't an issue for now; our current model's quality does not yet compete with human mappers, at least for an experienced *osu!Taiko* player. Even if our model's ability to produce sequences of Taiko notes resemebled that of a human mapper, there are still aesthetic enhancements that need to be made (such as "hitsounds", which are custom sound effects played upon tapping the drum). Thus, our model is unlikely to generate maps on its own that pass the quality check.
 
@@ -276,24 +375,29 @@ Sloan Chochinov ([@Hazelstorm](https://github.com/Hazelstorm)):
 - Wrote most of the helper functions in ```helper.py```.
 - Wrote a transformer model for this task (```transformer.py``` in older commits). Unfortunately our task requires too much memory for a transformer, so we were unable to get it working.
 - Proposed different models that could solve this problem.
+- Performed surveying of BNs.
 
 Natalie Ly ([@Natalie97-boop](https://github.com/Natalie97-boop)):
 - Created the preprocessing code (with Sloan).
 - Helped write some of the helper functions in ```helper.py```.
-- Helped David with postprocessing.py
-- Trained the ```notePresenceRNN``` models on her computer (RTX 3080 Ti).
+- Helped David with postprocessing.py.
+- Trained the ```notePresenceRNN``` and ```noteColourRNN``` models on her computer (RTX 3080 Ti).
 - Wrote code to export the training curves to .csv files.
 
 Paul Zhang ([@sjorv](https://github.com/sjorv)): 
 - Created the initial RNN models (originally a unidirectional GRU without embedding).
 - Wrote the training code and the loss functions.
 - Optimized preprocessing and postprocessing code. 
-- Evaluated the model qualitatively, by creating *osu!Taiko* beatmaps using the model.
-- Wrote most of the code documentation, and produced the training curves.
+- Evaluated the model qualitatively as it trained, by creating *osu!Taiko* beatmaps using the model.
+- Wrote most of the code documentation, and produced some of the training curves.
 - Composed this README file.
 - Proposed and built consensus for this project.
 
 David Zhao (@[dqdotz](https://github.com/dqdotz)):
 - Wrote the original code for ```postprocessing.py``` and ```postprocessing_helpers.py```.
 - Wrote ```get_npy_stats.py``` to obtain statistics on the dataset.
-- Trained the ```noteColourRNN``` and ```noteFinisherRNN``` models on his computer (RTX 3070).
+- Performed the grid search for ```noteColourRNN``` hyperparameters on his computer (RTX 3070).
+- Attempted to train the ```noteFinisherRNN``` (but the result was not good).
+
+## Citing This Project
+Just provide a link to this repository.
