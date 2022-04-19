@@ -247,6 +247,12 @@ To play the map:
 
 ### Qualitative Evaluation
 
+We have produced two Taiko maps using the trained model. The following songs were used:
+- Tanchiky - School (BPM: offset: ). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
+- Bill Wurtz - School (BPM: offset: ). A video of the map can be found [here](https://www.youtube.com/watch?v=FnAFkdGqGAY).
+
+Neither song is in the training set.
+
 Overall, the ```notePresenceRNN``` model seemed to pick up percussion elements quite well. However, we've noticed that the model tends to perform relatively poorly in sections of music that are low-intensity. Specifically, the model sometimes places sporadic notes that don't really follow the rhythm of the music in such low-intensity sections. We hypothesize a few reasons for this behaviour:
 - Low-intensity sections of music tend to have less percussion and more melodic elements. On the other hand, ```notePresenceRNN``` seems to focus on the percussion element of music, so the model could struggle when percussion is not present. Furthermore, we've limited ```fmax```, the max frequency for the spectrogram, to 5000 Hz; this frequency limit may cut off treble in low-intensity sections (where bass is limited).
 - In human-made Taiko maps, usually a break section would be placed upon a low-intensity musical verse. Our model has occassionally placed "break sections", albeit most of the time there are a handful of notes in the break section. We see this as an attempt by the model to imitate the human break section, but an incorrectly-placed break section can be penalized heavily by our loss (predicting no note when there is a note is penalized heavily).
@@ -267,10 +273,77 @@ Please provide your thoughts on the quality of the map (in particular, with resp
 Would you rank a mapset with this difficulty? If not, give some examples of what would have to change in order for you to be comfortable with ranking it. (in particular, with respect to the patterning and colouring ONLY)
 ```
 
+Here are the responses:
+
+- Response from: radar ([*osu!* profile](https://osu.ppy.sh/users/7131099))
+  + Response:
+  ```
+  this is power:
+
+  1) i believe this to be of an oni difficulty, mainly due to the snapping used + the average 1/4 pattern length 
+
+  2) in general i believe this map to be low quality. some patterns used are a bit too difficult for the target difficulty (i.e. 02:16:239 (644,645,646,647,648,649,650) - 00:12:810 (61,62,63,64,65,66,67) - ) which may just be personal preference. i also see a significant lack of finishers used, as well as some color change nuances which most mappers would do that it misses (i.e. 00:55:239 - this entire basically don only section)
+
+  3) no, id likely need most of the patterning to be reworked to match a specific focus layer. as currently things seem to get pretty out of hand when sections significantly musically change (colors get all wacky and some rhythm gets beefed like 00:36:703 - being an unmapped sound despite its loudness)
+
+  school:
+
+  1) futsuu, since it follows common futsuu guidelines and rhythm use for the bpm
+
+  2) it seems to be alright, though missing a few key color changes. since its common for low difficulties to stick to a very clear cut layer, not having things like 00:14:849 (21) - 00:21:099 (31) - being color changed for percussion is a bit sad. also, some really weird rhythm blunders like 00:17:817 (25,26) - 
+
+  oh also 00:30:161 (47,48,49,50,51,52,53) - is too much within the context of the diff imo
+
+  3) i mean, this could definitely be modded to a rankable state cuz of length and stuff. however, in this state, i would not nominate it. changes to be made would be similar to point 2), as well as certain things laid out in the above maps point 3)
+  ```
+- Response from: Nifty ([*osu!* profile](https://osu.ppy.sh/users/4956097))
+  + Response:
+  ```
+  bill wurtz-
+  I think that this difficulty is meant to be a futsuu, since it breaks kantan guidelines by using 1/4, 
+  but does not include anything particularly muzukashii-level, except maybe 00:30:161 - .
+
+  The patterns and rhythms are very good until 00:06:099 - , where the song begins going off the rails, ignoring important parts, 
+  and missing obvious color choices. The snares could be consistently mapped as k, certain parts like 00:17:817 (25,26) - are completely ignoring emphasis.
+  Many parts of the map are quite good, such as 00:20:161 - to 00:28:286 - , the only obvious change would be to make 00:27:349 (43) - a k for the snare.
+  Like I mentioned earlier, the only place that doesn't particularly fit in a futsuu like the rest of the map is 00:30:161 - , so I would delete 00:30:317 (48) - .
+
+  I would not nominate this map, I probably wouldn't even accept to mod it because it has so many glaring issues, like I mentioned earlier.
+  The biggest part that would need changing is what layers of the music are being followed at certain points in time. Sometimes it's the bass,
+  others the drums, and others the vocals, but the switches are not obvious and sometimes clash with each other in ugly ways.
+
+  Tanchiky-
+  I think this difficulty is meant to be an oni because it uses common 1/4 but not many longer than 5 notes. 
+  It breaks muzukashii ranking criteria a lot but isn't difficult enough to an inner oni.
+
+  The rhythms in this map are pretty solid, with a few exceptions such as 00:29:953 - missing this note all the time and a few spots in 00:55:239 - .
+  The color choices, on the other hand, are not so stellar. The map is very monotonous, using mostly d notes, and at times is unbearably monotone such as at 01:47:739 - having 7 d 1/2 notes.
+  The patterns were very repetitive and a lot of emphasis was lost by omitting k's where they could have been placed, such as at 00:18:810 (93) - and 00:20:524 (102) - .
+  00:27:810 - This section is quite good, minus the missing note I mentioned earlier, the variation is nice and the rhythms make sense.
+  In general, this map has quite good structure, the difference between sections of the music is obvious and the rhythmic consistency is good and accurate.
+
+  I would not nominate this map because it is boring, the emphasis is lost in many places due to lack of color diversity, and the rhythms are too often incorrect or incomprehensible.
+  The largest section that would need change is from 00:55:239 - to 01:22:667 - , since it is not interesting, monotonous, and not consistently mapped to anything.
+  ```
+  
+#### Analysis
+  
+From the BN's responses, the following issues arise with our model:
+- The model seems to grasp the concept of difficulty poorly. Even though we've trained on Kantan difficulties, the two produced maps are more difficult than Kantan; in fact *This is Power* is considered an Oni by the two BNs. We believe that this is potentially due to ```note_presence_weight``` being set too high, discouraging the model from predicting no-note (even though many times no-note would be more appropriate in a Kantan difficulty).
+- The note colouring seems to be "monotonous" in a lot of places, despite ```noteColourRNN``` having lower validation loss than the "best case". We are not entirely sure why this is the case, but as noted before, ```noteColourRNN``` seems to predict kat for high-pitched percussion, while in reality Taiko note colouring is more subtle and complicated, where a non-Taiko player may not be able to tell "correct" colouring from "incorrect" colouring.
+- ```notePresenceRNN``` still has some occassional "rhythm blunders". This is expected, as we have only trained ```notePresenceRNN``` for a few hours, while the task of recognizing notes from audio is difficult since the input is high-dimensional.
+- The maps produced are "boring" - the model learned how to produce somewhat coherent Taiko maps, but in a mundane way that does not invoke creativity.
+- The note placement seems to not have a clear-cut "layer" of the audio - that is, the notes aren't consistently annotating a single instrument/sound in the music, and instead choosing from multiple instruments/sounds. 
+
+In the end, however, we believe that our model performed reasonably for the given task of Taiko map generation:
+- 
+
 ## Ethical Considerations
 
 In [Qualitative Evaluation](#qualitative-evaluation), all responses from BNs were obtained with their consent. The following question is asked after the BN responds:
 ```The maps you just reviewed were 100% generated by a machine learning model created for a deep learning project. Do you consent to your responses being included in our report?```
+
+The two produced maps used music from *osu!*'s "[Featured Artists](https://osu.ppy.sh/wiki/en/Featured_Artists)" - musical composers that make music specifically for *osu!* beatmaps.
 
 This project, with some further training, could be easily made into a more user-friendly Taiko Map Generator for *osu!Taiko* players who have no experience with code or creating beatmaps. Many *osu!Taiko* players would like to play a Taiko map of their favourite songs, but beatmaps for their favourite songs may not be present. In addition, this tool could also aid "mappers" - people who dedicate time to creating beatmaps. Typically, creating a beatmap is a very tedious process; a successful Taiko map generator would make creating beatmaps more efficient.
 
