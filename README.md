@@ -249,7 +249,7 @@ To play the map:
 ### Qualitative Evaluation
 
 We have produced two Taiko maps using the trained model. The following songs were used:
-- Tanchiky - School (BPM: 140, offset: 382). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
+- Tanchiky - This is Power (BPM: 140, offset: 382). A video of the map can be found [here](https://www.youtube.com/watch?v=l91C-G_mRK0).
 - Bill Wurtz - School (BPM: 96, offset: 1099). A video of the map can be found [here](https://www.youtube.com/watch?v=FnAFkdGqGAY).
 
 Neither song is in the training set. The two chosen songs have different musical genres, to be more representative of what is mapped in Taiko.
