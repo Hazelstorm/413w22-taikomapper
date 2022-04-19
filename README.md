@@ -278,7 +278,6 @@ Would you rank a mapset with this difficulty? If not, give some examples of what
 Here are the responses:
 
 - Response from: radar ([*osu!* profile](https://osu.ppy.sh/users/7131099))
-  + Response:
   ```
   this is power:
 
@@ -299,7 +298,6 @@ Here are the responses:
   3) i mean, this could definitely be modded to a rankable state cuz of length and stuff. however, in this state, i would not nominate it. changes to be made would be similar to point 2), as well as certain things laid out in the above maps point 3)
   ```
 - Response from: Nifty ([*osu!* profile](https://osu.ppy.sh/users/4956097))
-  + Response:
   ```
   bill wurtz-
   I think that this difficulty is meant to be a futsuu, since it breaks kantan guidelines by using 1/4, 
@@ -326,6 +324,13 @@ Here are the responses:
 
   I would not nominate this map because it is boring, the emphasis is lost in many places due to lack of color diversity, and the rhythms are too often incorrect or incomprehensible.
   The largest section that would need change is from 00:55:239 - to 01:22:667 - , since it is not interesting, monotonous, and not consistently mapped to anything.
+  ```
+  
+- Response from: Dusk- ([*osu!* profile](https://osu.ppy.sh/users/6092181))
+  ```
+  this is power seems to be intended as an oni. note placement is ok for the most part however i have no idea what the don heavy section in the middle was being mapped to. i’m not using earphones right now so maybe it’s some type of bass that i can’t hear. colouring wise the map is quite repetitive and becomes mundane especially in the final minute. also the dddkkkd stood out as being a pattern that isn’t used in oni at this type of bpm. a pattern with less colour changes or a split pattern would work better here and it’s one of the longest patterns in the map even though it’s not in the chorus. based on the reasons above i wouldn’t nominate a map that had this difficulty
+
+  school seems to be intended as a very easy muzukashii. it doesn’t really have a structure that i was able to pick up and associate a constant rhythm to due to a lot of the isolated notes. colouring wise i don’t really have much to say but i wouldn’t nominate this either due to the structure and how awkward the isolated don heavy sections play
   ```
   
 #### Analysis
