@@ -143,7 +143,7 @@ Here are some other per-difficulty statistics:
 * Note that many songs are counted repeatedly, once for each difficulty.
 
 ### Data Split
-We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model. Also, the validation loss is only computed every 10 epochs of training, to reduce training time. 
+We allocated 80% of the mapsets for training, 10% of the mapsets for validation, and 10% of the mapsets for testing. This is because our evaluation will be mostly qualitative; there is no objective criteria to distinguish correct and incorrect generated maps, and our loss function does not fully capture the quality of our model.
 
 ## Quantitative Measures
 We have defined different loss measures for the three models. 
